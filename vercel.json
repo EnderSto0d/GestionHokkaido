@@ -1,0 +1,16 @@
+{
+  "framework": "nextjs",
+  "buildCommand": "next build",
+  "installCommand": "npm install",
+  "outputDirectory": ".next",
+  "crons": [
+    {
+      "path": "/api/cron/sync-discord",
+      "schedule": "0 3 * * *"
+    },
+    {
+      "path": "/api/cron/decay-points",
+      "schedule": "0 4 * * 1"
+    }
+  ]
+}
