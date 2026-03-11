@@ -172,7 +172,7 @@ export async function creerEvaluationIndividuelle(
   } = await supabase.auth.getUser();
   if (!user) return { success: false, error: "Non authentifié." };
 
-  // Role check — prof/admin OR membre du conseil
+  // Role check — prof/admin OR membre du conseil OR membre Académie
   const { data: _role } = await supabase
     .from("utilisateurs")
     .select("role")
@@ -184,6 +184,7 @@ export async function creerEvaluationIndividuelle(
   const admin = await createAdminClient();
 
   let isConseilMember = false;
+  let isAcademieMember = false;
   if (!isProfOrAdmin) {
     const { data: _conseil } = await admin
       .from("conseil_membres")
@@ -191,9 +192,17 @@ export async function creerEvaluationIndividuelle(
       .eq("utilisateur_id", user.id)
       .maybeSingle();
     isConseilMember = !!_conseil;
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: _academie } = await (admin.from("utilisateur_divisions") as any)
+      .select("id")
+      .eq("utilisateur_id", user.id)
+      .eq("division", "Académie")
+      .limit(1);
+    isAcademieMember = (_academie?.length ?? 0) > 0;
   }
 
-  if (!isProfOrAdmin && !isConseilMember) {
+  if (!isProfOrAdmin && !isConseilMember && !isAcademieMember) {
     return { success: false, error: "Permissions insuffisantes." };
   }
 
@@ -202,10 +211,10 @@ export async function creerEvaluationIndividuelle(
     return { success: false, error: "Compétence invalide." };
   }
 
-  // Commentaire obligatoire pour les membres du conseil
-  if (isConseilMember && !isProfOrAdmin) {
+  // Commentaire obligatoire pour les membres du conseil ou de l'Académie
+  if ((isConseilMember || isAcademieMember) && !isProfOrAdmin) {
     if (!payload.commentaire || payload.commentaire.trim().length === 0) {
-      return { success: false, error: "Un commentaire est obligatoire pour les membres du conseil." };
+      return { success: false, error: "Un commentaire est obligatoire pour les membres du conseil et de l'Académie." };
     }
   }
 

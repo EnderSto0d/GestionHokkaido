@@ -83,6 +83,7 @@ export type ParticipantRow = {
   prenom_rp: string | null;
   nom_rp: string | null;
   grade_role: string | null;
+  present: boolean;
   escouade: {
     id: string;
     nom: string;
@@ -340,6 +341,7 @@ function buildEmbed(
 ) {
   const dateText = mission.date_heure
     ? new Date(mission.date_heure).toLocaleString("fr-FR", {
+        timeZone: "UTC",
         weekday: "long",
         year: "numeric",
         month: "long",
@@ -683,6 +685,7 @@ export async function getMissionParticipants(missionId: string): Promise<{
     .from("participations_mission")
     .select(
       `utilisateur_id,
+       present,
        utilisateurs!inner(
          pseudo, avatar_url, prenom_rp, nom_rp, grade_role,
          membres_escouade(
@@ -701,6 +704,7 @@ export async function getMissionParticipants(missionId: string): Promise<{
   };
   type RawParticipant = {
     utilisateur_id: string;
+    present: boolean;
     utilisateurs: {
       pseudo: string;
       avatar_url: string | null;
@@ -737,6 +741,7 @@ export async function getMissionParticipants(missionId: string): Promise<{
       prenom_rp: u.prenom_rp,
       nom_rp: u.nom_rp,
       grade_role: u.grade_role,
+      present: row.present ?? false,
       escouade: escouade
         ? { id: escouade.id, nom: escouade.nom, url_logo: escouade.url_logo }
         : null,
@@ -886,7 +891,8 @@ export async function creerMission(
   if (payload.ping_cible.escouadeIds?.length) {
     escouadeRoles = await getEscouadeDiscordRoles(payload.ping_cible.escouadeIds);
   }
-  const pingStr = buildPingString(payload.ping_cible, escouadeRoles);
+  let pingStr = buildPingString(payload.ping_cible, escouadeRoles);
+  if (auth.discordId) pingStr = `<@${auth.discordId}> ${pingStr}`;
 
   // Envoi de l'embed Discord
   const discordMessageId = await sendDiscordEmbed(mission, pingStr);
@@ -1399,6 +1405,176 @@ export async function supprimerMission(missionId: string): Promise<ActionResult>
   if (error) return { success: false, error: error.message };
 
   revalidatePath("/missions");
+  revalidatePath(`/missions/${missionId}`);
+  return { success: true };
+}
+
+// ─── Modifier une mission ─────────────────────────────────────────────────────
+
+export type MissionEditPayload = {
+  titre: string;
+  date_heure: string | null;
+  capacite: number | null;
+  points_recompense: number;
+  synopsis: string;
+};
+
+/**
+ * Modifie une mission active (titre, date, capacité, points, synopsis).
+ * Met à jour l'embed Discord après modification.
+ * Autorisé pour : créateur de la mission, Exo Pro ou supérieur, admin/prof.
+ */
+export async function modifierMission(
+  missionId: string,
+  payload: MissionEditPayload
+): Promise<ActionResult> {
+  if (!missionId || typeof missionId !== "string") {
+    return { success: false, error: "ID de mission invalide." };
+  }
+
+  const auth = await verifyMissionCreator();
+  if ("error" in auth) return { success: false, error: auth.error };
+
+  // Validation
+  const titre = payload.titre.trim();
+  if (!titre || titre.length > 200) {
+    return { success: false, error: "Titre invalide (1–200 caractères)." };
+  }
+  if (
+    payload.capacite !== null &&
+    (!Number.isInteger(payload.capacite) || payload.capacite < 1)
+  ) {
+    return { success: false, error: "Capacité invalide." };
+  }
+  if (
+    !Number.isInteger(payload.points_recompense) ||
+    payload.points_recompense < 0 ||
+    payload.points_recompense > MAX_CUSTOM_MISSION_POINTS
+  ) {
+    return {
+      success: false,
+      error: `Les points doivent être entre 0 et ${MAX_CUSTOM_MISSION_POINTS}.`,
+    };
+  }
+
+  const admin = await createAdminClient();
+
+  const { data: existing } = await admin
+    .from("missions")
+    .select("id, createur_id, statut, discord_message_id")
+    .eq("id", missionId)
+    .single();
+
+  if (!existing) return { success: false, error: "Mission introuvable." };
+  const mission = existing as { id: string; createur_id: string; statut: string; discord_message_id: string | null };
+
+  if (mission.statut !== "active") {
+    return { success: false, error: "Seule une mission active peut être modifiée." };
+  }
+
+  const { data: callerData } = await admin
+    .from("utilisateurs")
+    .select("role, grade_role")
+    .eq("id", auth.userId)
+    .single();
+  const caller = callerData as { role: string; grade_role: GradeRole | null } | null;
+  const isCreator = mission.createur_id === auth.userId;
+  const isAdminOrProf = caller?.role === "admin" || caller?.role === "professeur";
+  const isExoProPlus = caller?.grade_role !== null && EXO_PRO_PLUS.includes(caller?.grade_role as GradeRole);
+
+  if (!isCreator && !isAdminOrProf && !isExoProPlus) {
+    return { success: false, error: "Permissions insuffisantes pour modifier cette mission." };
+  }
+
+  const { error: updateError } = await admin
+    .from("missions")
+    .update({
+      titre,
+      date_heure: payload.date_heure || null,
+      capacite: payload.capacite,
+      points_recompense: payload.points_recompense,
+      points_individuels: payload.points_recompense,
+      synopsis: payload.synopsis.trim() || null,
+    })
+    .eq("id", missionId);
+
+  if (updateError) return { success: false, error: updateError.message };
+
+  if (mission.discord_message_id) {
+    const { data: updatedMission } = await admin
+      .from("missions")
+      .select("*")
+      .eq("id", missionId)
+      .single();
+
+    const { count: participantCount } = await admin
+      .from("participations_mission")
+      .select("id", { count: "exact", head: true })
+      .eq("mission_id", missionId);
+
+    if (updatedMission) {
+      await patchDiscordEmbed(
+        mission.discord_message_id,
+        updatedMission as MissionRow,
+        participantCount ?? 0
+      );
+    }
+  }
+
+  revalidatePath(`/missions/${missionId}`);
+  revalidatePath("/missions");
+  return { success: true };
+}
+
+/** Toggle the "present" flag for a single participant in a mission. */
+export async function toggleMissionPresence(
+  missionId: string,
+  utilisateurId: string
+): Promise<ActionResult> {
+  const auth = await verifyMissionCreator();
+  if ("error" in auth) return { success: false, error: auth.error };
+
+  const admin = await createAdminClient();
+
+  const { data: row } = await admin
+    .from("participations_mission")
+    .select("present")
+    .eq("mission_id", missionId)
+    .eq("utilisateur_id", utilisateurId)
+    .single();
+
+  if (!row) return { success: false, error: "Participant introuvable." };
+
+  const current = (row as { present: boolean }).present;
+
+  const { error } = await admin
+    .from("participations_mission")
+    .update({ present: !current })
+    .eq("mission_id", missionId)
+    .eq("utilisateur_id", utilisateurId);
+
+  if (error) return { success: false, error: error.message };
+
+  revalidatePath(`/missions/${missionId}`);
+  return { success: true };
+}
+
+/** Mark all participants of a mission as present. */
+export async function marquerTousPresentsMission(
+  missionId: string
+): Promise<ActionResult> {
+  const auth = await verifyMissionCreator();
+  if ("error" in auth) return { success: false, error: auth.error };
+
+  const admin = await createAdminClient();
+
+  const { error } = await admin
+    .from("participations_mission")
+    .update({ present: true })
+    .eq("mission_id", missionId);
+
+  if (error) return { success: false, error: error.message };
+
   revalidatePath(`/missions/${missionId}`);
   return { success: true };
 }

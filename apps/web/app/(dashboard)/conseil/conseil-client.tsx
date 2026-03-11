@@ -13,6 +13,7 @@ import {
   retirerVoteAnnulationPP,
   revoquerMembreConseil,
   nommerMembreConseil,
+  annulerMonVote,
 } from "./actions";
 import type {
   ConseilMembre,
@@ -50,6 +51,9 @@ type ConseilClientProps = {
   candidatsJoker: Candidat[];
   mesVotesEleve: string[];
   mesVotesStaff: string[];
+  // Blocked votes (cancelled definitively)
+  mesVotesBloquesEleve: string[];
+  mesVotesBloquesStaff: string[];
   peutVoterEleveInfo: { canVote: boolean; reason?: string; votesRestants?: number } | null;
   isProfOrAdmin: boolean;
   isDirector: boolean;
@@ -105,6 +109,8 @@ export function ConseilClient({
   candidatsJoker,
   mesVotesEleve,
   mesVotesStaff,
+  mesVotesBloquesEleve,
+  mesVotesBloquesStaff,
   peutVoterEleveInfo,
   isProfOrAdmin,
   isDirector,
@@ -130,6 +136,25 @@ export function ConseilClient({
   const [nommerSearchTerm, setNommerSearchTerm] = useState("");
   const [nommerType, setNommerType] = useState<"elu_eleve" | "elu_joker">("elu_joker");
   const [activeTab, setActiveTab] = useState<"overview" | "votes" | "elections" | "admin">("overview");
+
+  const [confirmCancelVote, setConfirmCancelVote] = useState<{
+    electionId: string;
+    candidatId: string;
+    candidatName: string;
+  } | null>(null);
+
+  function handleConfirmCancelVote() {
+    if (!confirmCancelVote) return;
+    const { electionId, candidatId } = confirmCancelVote;
+    setConfirmCancelVote(null);
+    startTransition(async () => {
+      const res = await annulerMonVote(electionId, candidatId);
+      showFeedback(
+        res.success ? "Vote annulé. Vous ne pourrez plus voter pour ce candidat." : res.error,
+        !res.success
+      );
+    });
+  }
 
   const electionEleve = elections.find((e) => e.type === "elu_eleve");
   const electionStaff = elections.find((e) => e.type === "elu_joker");
@@ -277,6 +302,38 @@ export function ConseilClient({
       {success && (
         <div className="p-4 rounded-xl bg-emerald-500/10 ring-1 ring-emerald-500/30 text-emerald-300 text-sm animate-fade-in">
           {success}
+        </div>
+      )}
+
+      {/* Confirmation popup — annulation de vote */}
+      {confirmCancelVote && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-fade-in">
+          <div className="mx-4 max-w-md w-full rounded-2xl bg-[#1a0a0a] ring-1 ring-red-500/30 p-6 shadow-2xl space-y-4">
+            <h3 className="text-lg font-bold text-white">Annuler votre vote ?</h3>
+            <p className="text-sm text-white/60">
+              Vous allez annuler votre vote pour <span className="font-semibold text-white/90">{confirmCancelVote.candidatName}</span>.
+            </p>
+            <div className="p-3 rounded-xl bg-red-500/10 ring-1 ring-red-500/20">
+              <p className="text-xs text-red-300/80">
+                <span className="font-bold text-red-400">Attention :</span> cette action est définitive. Vous ne pourrez plus jamais voter pour ce candidat dans cette élection.
+              </p>
+            </div>
+            <div className="flex gap-3 pt-2">
+              <button
+                onClick={() => setConfirmCancelVote(null)}
+                className="flex-1 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-white/60 text-sm font-medium ring-1 ring-white/10 transition-all"
+              >
+                Annuler
+              </button>
+              <button
+                onClick={handleConfirmCancelVote}
+                disabled={pending}
+                className="flex-1 py-2.5 rounded-xl bg-red-500/20 hover:bg-red-500/30 text-red-300 text-sm font-bold ring-1 ring-red-500/30 transition-all disabled:opacity-50"
+              >
+                Confirmer l&apos;annulation
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -461,6 +518,19 @@ export function ConseilClient({
                             vote{c.nb_votes !== 1 ? "s" : ""}
                           </span>
                         </span>
+                        {mesVotesEleve.includes(c.utilisateur_id) && (
+                          <button
+                            onClick={() => setConfirmCancelVote({
+                              electionId: electionEleve.id,
+                              candidatId: c.utilisateur_id,
+                              candidatName: c.prenom_rp && c.nom_rp ? `${c.prenom_rp} ${c.nom_rp}` : c.pseudo,
+                            })}
+                            disabled={pending}
+                            className="px-2 py-1 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 text-[10px] font-medium ring-1 ring-red-500/20 transition-all disabled:opacity-50"
+                          >
+                            Retirer
+                          </button>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -481,7 +551,7 @@ export function ConseilClient({
                     />
                     <div className="max-h-60 overflow-y-auto space-y-1">
                       {filteredCandidats
-                        .filter((c) => c.id !== userId && !mesVotesEleve.includes(c.id))
+                        .filter((c) => c.id !== userId && !mesVotesEleve.includes(c.id) && !mesVotesBloquesEleve.includes(c.id))
                         .slice(0, 20)
                         .map((c) => (
                           <button
@@ -581,6 +651,19 @@ export function ConseilClient({
                             vote{c.nb_votes !== 1 ? "s" : ""}
                           </span>
                         </span>
+                        {mesVotesStaff.includes(c.utilisateur_id) && (
+                          <button
+                            onClick={() => setConfirmCancelVote({
+                              electionId: electionStaff.id,
+                              candidatId: c.utilisateur_id,
+                              candidatName: c.prenom_rp && c.nom_rp ? `${c.prenom_rp} ${c.nom_rp}` : c.pseudo,
+                            })}
+                            disabled={pending}
+                            className="px-2 py-1 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 text-[10px] font-medium ring-1 ring-red-500/20 transition-all disabled:opacity-50"
+                          >
+                            Retirer
+                          </button>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -601,7 +684,7 @@ export function ConseilClient({
                   />
                   <div className="max-h-60 overflow-y-auto space-y-1">
                     {filteredCandidatsJoker
-                      .filter((c) => !mesVotesStaff.includes(c.id))
+                      .filter((c) => !mesVotesStaff.includes(c.id) && !mesVotesBloquesStaff.includes(c.id))
                       .slice(0, 20)
                       .map((c) => (
                         <button
@@ -723,6 +806,19 @@ export function ConseilClient({
                             vote{c.nb_votes !== 1 ? "s" : ""}
                           </span>
                         </span>
+                        {mesVotesEleve.includes(c.utilisateur_id) && (
+                          <button
+                            onClick={() => setConfirmCancelVote({
+                              electionId: electionEleve.id,
+                              candidatId: c.utilisateur_id,
+                              candidatName: c.prenom_rp && c.nom_rp ? `${c.prenom_rp} ${c.nom_rp}` : c.pseudo,
+                            })}
+                            disabled={pending}
+                            className="px-2 py-1 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 text-[10px] font-medium ring-1 ring-red-500/20 transition-all disabled:opacity-50"
+                          >
+                            Retirer
+                          </button>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -743,7 +839,7 @@ export function ConseilClient({
                     />
                     <div className="max-h-60 overflow-y-auto space-y-1">
                       {filteredCandidats
-                        .filter((c) => c.id !== userId && !mesVotesEleve.includes(c.id))
+                        .filter((c) => c.id !== userId && !mesVotesEleve.includes(c.id) && !mesVotesBloquesEleve.includes(c.id))
                         .slice(0, 20)
                         .map((c) => (
                           <button
@@ -835,6 +931,19 @@ export function ConseilClient({
                             vote{c.nb_votes !== 1 ? "s" : ""}
                           </span>
                         </span>
+                        {mesVotesStaff.includes(c.utilisateur_id) && (
+                          <button
+                            onClick={() => setConfirmCancelVote({
+                              electionId: electionStaff.id,
+                              candidatId: c.utilisateur_id,
+                              candidatName: c.prenom_rp && c.nom_rp ? `${c.prenom_rp} ${c.nom_rp}` : c.pseudo,
+                            })}
+                            disabled={pending}
+                            className="px-2 py-1 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 text-[10px] font-medium ring-1 ring-red-500/20 transition-all disabled:opacity-50"
+                          >
+                            Retirer
+                          </button>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -853,7 +962,7 @@ export function ConseilClient({
                   />
                   <div className="max-h-60 overflow-y-auto space-y-1">
                     {filteredCandidatsJoker
-                      .filter((c) => !mesVotesStaff.includes(c.id))
+                      .filter((c) => !mesVotesStaff.includes(c.id) && !mesVotesBloquesStaff.includes(c.id))
                       .slice(0, 20)
                       .map((c) => (
                         <button

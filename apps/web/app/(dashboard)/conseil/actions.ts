@@ -358,6 +358,18 @@ export async function voterEleve(
     return { success: false, error: "Ce membre fait déjà partie du conseil." };
   }
 
+  // Vérifier que le vote n'a pas été annulé (bloqué définitivement)
+  const { data: bloque } = await admin
+    .from("votes_conseil_bloques")
+    .select("id")
+    .eq("election_id", electionId)
+    .eq("votant_id", user.id)
+    .eq("candidat_id", candidatId)
+    .limit(1);
+  if (bloque && bloque.length > 0) {
+    return { success: false, error: "Vous avez annulé votre vote pour ce candidat, vous ne pouvez plus voter pour lui." };
+  }
+
   // Vérifier qu'on n'a pas déjà voté pour ce candidat
   const { data: dejaVote } = await admin
     .from("votes_conseil")
@@ -407,6 +419,18 @@ export async function voterStaff(
   const election = _election as any;
   if (!election || election.statut !== "en_cours" || election.type !== "elu_joker") {
     return { success: false, error: "Élection Joker non en cours." };
+  }
+
+  // Vérifier que le vote n'a pas été annulé (bloqué définitivement)
+  const { data: bloque } = await admin
+    .from("votes_conseil_bloques")
+    .select("id")
+    .eq("election_id", electionId)
+    .eq("votant_id", auth.userId)
+    .eq("candidat_id", candidatId)
+    .limit(1);
+  if (bloque && bloque.length > 0) {
+    return { success: false, error: "Vous avez annulé votre vote pour ce candidat, vous ne pouvez plus voter pour lui." };
   }
 
   // Vérifier doublons
@@ -1162,4 +1186,78 @@ export async function retirerVoteAnnulation(
 
   revalidatePath("/conseil");
   return { success: true };
+}
+
+// ─── Annuler son propre vote (définitif — bloque le re-vote pour ce candidat) ─
+
+export async function annulerMonVote(
+  electionId: string,
+  candidatId: string
+): Promise<ActionResult> {
+  const user = await verifyAuth();
+  if (!user) return { success: false, error: "Non authentifié." };
+  const admin = await createAdminClient();
+
+  // Vérifier que l'élection est en cours
+  const { data: _election } = await admin
+    .from("elections_conseil")
+    .select("id, statut")
+    .eq("id", electionId)
+    .single();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const election = _election as any;
+  if (!election || election.statut !== "en_cours") {
+    return { success: false, error: "Élection non en cours." };
+  }
+
+  // Vérifier que le vote existe
+  const { data: existingVote } = await admin
+    .from("votes_conseil")
+    .select("id")
+    .eq("election_id", electionId)
+    .eq("votant_id", user.id)
+    .eq("candidat_id", candidatId)
+    .limit(1);
+  if (!existingVote || existingVote.length === 0) {
+    return { success: false, error: "Aucun vote trouvé pour ce candidat." };
+  }
+
+  // Supprimer le vote
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error: delErr } = await (admin.from("votes_conseil") as any)
+    .delete()
+    .eq("election_id", electionId)
+    .eq("votant_id", user.id)
+    .eq("candidat_id", candidatId);
+  if (delErr) {
+    return { success: false, error: "Erreur lors de la suppression du vote." };
+  }
+
+  // Bloquer le re-vote pour ce candidat
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await (admin.from("votes_conseil_bloques") as any).insert({
+    election_id: electionId,
+    votant_id: user.id,
+    candidat_id: candidatId,
+  });
+
+  revalidatePath("/conseil");
+  return { success: true };
+}
+
+// ─── Obtenir les votes bloqués de l'utilisateur pour une élection ─────────────
+
+export async function getMesVotesBloques(
+  electionId: string
+): Promise<string[]> {
+  const user = await verifyAuth();
+  if (!user) return [];
+  const admin = await createAdminClient();
+  const { data } = await admin
+    .from("votes_conseil_bloques")
+    .select("candidat_id")
+    .eq("election_id", electionId)
+    .eq("votant_id", user.id);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return (data ?? []).map((v: any) => v.candidat_id as string);
 }

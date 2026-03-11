@@ -10,6 +10,7 @@ import {
   peutVoterEleve,
   getMesVotes,
   getVotesAnnulation,
+  getMesVotesBloques,
 } from "./actions";
 import {
   canStartChiefElection,
@@ -114,6 +115,8 @@ export default async function ConseilPage() {
     myChiefVote,
     votesAnnulationEleve,
     votesAnnulationStaff,
+    mesVotesBloquesEleve,
+    mesVotesBloquesStaff,
   ] = await Promise.all([
     electionEleve ? getResultatsElection(electionEleve.id) : Promise.resolve([]),
     electionStaff ? getResultatsElection(electionStaff.id) : Promise.resolve([]),
@@ -124,6 +127,8 @@ export default async function ConseilPage() {
     chiefElection ? getMyChiefVote(chiefElection.id) : Promise.resolve(null),
     electionEleve ? getVotesAnnulation(electionEleve.id, user.id) : Promise.resolve(null),
     electionStaff ? getVotesAnnulation(electionStaff.id, user.id) : Promise.resolve(null),
+    electionEleve ? getMesVotesBloques(electionEleve.id) : Promise.resolve([]),
+    electionStaff ? getMesVotesBloques(electionStaff.id) : Promise.resolve([]),
   ]);
 
   return (
@@ -175,6 +180,8 @@ export default async function ConseilPage() {
           candidatsJoker={candidatsJoker}
           mesVotesEleve={mesVotesEleve}
           mesVotesStaff={mesVotesStaff}
+          mesVotesBloquesEleve={mesVotesBloquesEleve}
+          mesVotesBloquesStaff={mesVotesBloquesStaff}
           peutVoterEleveInfo={peutVoterEleveInfo}
           isProfOrAdmin={isProfOrAdmin}
           isDirector={isDirector}

@@ -809,17 +809,20 @@ export interface Database {
           id: string;
           mission_id: string;
           utilisateur_id: string;
+          present: boolean;
           cree_le: string;
         };
         Insert: {
           id?: string;
           mission_id: string;
           utilisateur_id: string;
+          present?: boolean;
         };
         Update: {
           id?: string;
           mission_id?: string;
           utilisateur_id?: string;
+          present?: boolean;
         };
         Relationships: [
           {
@@ -969,6 +972,100 @@ export interface Database {
             columns: ["item_id"];
             isOneToOne: false;
             referencedRelation: "logistics_items";
+            referencedColumns: ["id"];
+          }
+        ];
+      };
+      // ─── Cours ─────────────────────────────────────────────────────────
+      cours: {
+        Row: {
+          id: string;
+          createur_id: string;
+          titre: string;
+          description: string | null;
+          date_heure: string | null;
+          capacite: number | null;
+          ping_cible: Json;
+          discord_message_id: string | null;
+          statut: "active" | "termine" | "annule";
+          site: string;
+          deleted_at: string | null;
+          cree_le: string;
+          mis_a_jour_le: string;
+        };
+        Insert: {
+          id?: string;
+          createur_id: string;
+          titre: string;
+          description?: string | null;
+          date_heure?: string | null;
+          capacite?: number | null;
+          ping_cible?: Json;
+          discord_message_id?: string | null;
+          statut?: "active" | "termine" | "annule";
+          site?: string;
+          deleted_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          createur_id?: string;
+          titre?: string;
+          description?: string | null;
+          date_heure?: string | null;
+          capacite?: number | null;
+          ping_cible?: Json;
+          discord_message_id?: string | null;
+          statut?: "active" | "termine" | "annule";
+          site?: string;
+          deleted_at?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "cours_createur_id_fkey";
+            columns: ["createur_id"];
+            isOneToOne: false;
+            referencedRelation: "utilisateurs";
+            referencedColumns: ["id"];
+          }
+        ];
+      };
+      // ─── Participations Cours ──────────────────────────────────────────
+      participations_cours: {
+        Row: {
+          id: string;
+          cours_id: string;
+          utilisateur_id: string;
+          present: boolean;
+          site: string;
+          cree_le: string;
+        };
+        Insert: {
+          id?: string;
+          cours_id: string;
+          utilisateur_id: string;
+          present?: boolean;
+          site?: string;
+        };
+        Update: {
+          id?: string;
+          cours_id?: string;
+          utilisateur_id?: string;
+          present?: boolean;
+          site?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "participations_cours_cours_id_fkey";
+            columns: ["cours_id"];
+            isOneToOne: false;
+            referencedRelation: "cours";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "participations_cours_utilisateur_id_fkey";
+            columns: ["utilisateur_id"];
+            isOneToOne: false;
+            referencedRelation: "utilisateurs";
             referencedColumns: ["id"];
           }
         ];

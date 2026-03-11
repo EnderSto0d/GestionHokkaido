@@ -477,6 +477,26 @@ export function AdminPanel({
                       ["grade", "Grade"],
                       ["grade_role", "Rôle"],
                       ["grade_secondaire", "Niveau"],
+                    ] as [SortKey, string][]).map(([key, label]) => (
+                      <th
+                        key={key}
+                        onClick={() => toggleSort(key)}
+                        className="px-4 py-3 text-xs font-semibold text-white/40 uppercase tracking-widest cursor-pointer hover:text-white/70 transition-colors select-none whitespace-nowrap"
+                      >
+                        <div className="flex items-center gap-1">
+                          {label}
+                          {sortKey === key && (
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className={`w-3 h-3 text-red-400 transition-transform ${!sortAsc ? "rotate-180" : ""}`}>
+                              <path fillRule="evenodd" d="M11.78 9.78a.75.75 0 0 1-1.06 0L8 7.06 5.28 9.78a.75.75 0 0 1-1.06-1.06l3.25-3.25a.75.75 0 0 1 1.06 0l3.25 3.25a.75.75 0 0 1 0 1.06Z" clipRule="evenodd" />
+                            </svg>
+                          )}
+                        </div>
+                      </th>
+                    ))}
+                    <th className="px-4 py-3 text-xs font-semibold text-white/40 uppercase tracking-widest whitespace-nowrap">
+                      Actions
+                    </th>
+                    {([
                       ["clan", "Clan"],
                       ["sort_inne", "Sort Inné"],
                       ["specialite", "Spécialité"],
@@ -498,9 +518,6 @@ export function AdminPanel({
                     ))}
                     <th className="px-4 py-3 text-xs font-semibold text-white/40 uppercase tracking-widest whitespace-nowrap">
                       Divisions
-                    </th>
-                    <th className="px-4 py-3 text-xs font-semibold text-white/40 uppercase tracking-widest whitespace-nowrap">
-                      Actions
                     </th>
                   </tr>
                 </thead>
@@ -568,18 +585,6 @@ export function AdminPanel({
                             <span className="text-white/20">—</span>
                           )}
                         </td>
-                        <td className="px-4 py-3">
-                          {student.clan ? (
-                            <span className="text-[10px] px-2 py-0.5 rounded bg-rose-500/10 text-rose-300 ring-1 ring-rose-400/15 font-semibold whitespace-nowrap">
-                              {student.clan}
-                            </span>
-                          ) : (
-                            <span className="text-white/20">—</span>
-                          )}
-                        </td>
-                        <td className="px-4 py-3 text-white/60 text-xs whitespace-nowrap">{student.sort_inne ?? "—"}</td>
-                        <td className="px-4 py-3 text-white/60 text-xs whitespace-nowrap">{student.specialite ?? "—"}</td>
-                        <td className="px-4 py-3 text-white/60 text-xs whitespace-nowrap">{student.divisions.length > 0 ? student.divisions.join(", ") : "\u2014"}</td>
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-1.5">
                             {/* Level up */}
@@ -656,6 +661,18 @@ export function AdminPanel({
                             </button>
                           </div>
                         </td>
+                        <td className="px-4 py-3">
+                          {student.clan ? (
+                            <span className="text-[10px] px-2 py-0.5 rounded bg-rose-500/10 text-rose-300 ring-1 ring-rose-400/15 font-semibold whitespace-nowrap">
+                              {student.clan}
+                            </span>
+                          ) : (
+                            <span className="text-white/20">—</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-white/60 text-xs whitespace-nowrap">{student.sort_inne ?? "—"}</td>
+                        <td className="px-4 py-3 text-white/60 text-xs whitespace-nowrap">{student.specialite ?? "—"}</td>
+                        <td className="px-4 py-3 text-white/60 text-xs whitespace-nowrap">{student.divisions.length > 0 ? student.divisions.join(", ") : "\u2014"}</td>
                       </tr>
                     );
                   })}

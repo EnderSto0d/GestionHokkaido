@@ -185,6 +185,7 @@ export default async function DashboardLayout({
         { href: "/classement", label: "Classement", icon: <IconTrophy /> },
         { href: "/conseil", label: "Conseil", icon: <IconCouncil /> },
         { href: "/missions", label: "Missions", icon: <IconSword /> },
+        { href: "/cours", label: "Cours", icon: <IconScroll /> },
         { href: "/info", label: "Guide", icon: <IconInfo /> },
       ],
     },

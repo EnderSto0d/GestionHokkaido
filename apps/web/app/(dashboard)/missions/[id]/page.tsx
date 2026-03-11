@@ -10,8 +10,9 @@ import {
 } from "../actions";
 import { getPingLabel } from "../mission-utils";
 import type { PingCible } from "../mission-utils";
-import { JoinMissionButton, CreatorControls, DeleteMissionButton } from "@/components/shared/mission-controls";
+import { JoinMissionButton, CreatorControls, DeleteMissionButton, EditMissionButton } from "@/components/shared/mission-controls";
 import MissionParticipants from "@/components/shared/mission-participants";
+import MissionAttendance from "@/components/shared/mission-attendance";
 
 // ─── Metadata ─────────────────────────────────────────────────────────────────
 
@@ -145,6 +146,13 @@ export default async function MissionDetailPage({
   const isCreator = user?.id === mission.createur_id;
   const isActive = mission.statut === "active";
   const canDelete = isCreator || canManage;
+  const canDoAppel = isCreator || canManage;
+
+  // Flatten all participants for the attendance component
+  const allParticipants = [
+    ...bySquad.flatMap((sq) => sq.participants),
+    ...solo,
+  ];
 
   const isFull =
     mission.capacite !== null && totalCount >= mission.capacite;
@@ -337,6 +345,7 @@ export default async function MissionDetailPage({
                 <p className="text-xs font-semibold text-white/50 uppercase tracking-wider mb-3">
                   Contrôles créateur
                 </p>
+                <EditMissionButton mission={mission} />
                 <CreatorControls missionId={id} />
               </div>
             )}
@@ -353,7 +362,7 @@ export default async function MissionDetailPage({
           </div>
 
           {/* ── Right column: participant dashboard ──────────────── */}
-          <div className="lg:col-span-2">
+          <div className="lg:col-span-2 space-y-4">
             <div className="rounded-2xl bg-white/[0.02] ring-1 ring-white/10 px-5 py-5 animate-slide-up" style={{ animationDelay: '120ms' }}>
               <MissionParticipants
                 bySquad={bySquad}
@@ -363,6 +372,18 @@ export default async function MissionDetailPage({
                 isCreator={isCreator}
               />
             </div>
+
+            {/* Attendance / Roll-call section */}
+            {(canDoAppel || !isActive) && allParticipants.length > 0 && (
+              <div className="rounded-2xl bg-white/[0.02] ring-1 ring-white/10 px-5 py-5 animate-slide-up" style={{ animationDelay: '160ms' }}>
+                <MissionAttendance
+                  missionId={id}
+                  participants={allParticipants}
+                  canDoAppel={canDoAppel}
+                  isActive={isActive}
+                />
+              </div>
+            )}
           </div>
         </div>
       </div>

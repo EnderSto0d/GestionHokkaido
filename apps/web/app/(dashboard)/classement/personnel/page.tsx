@@ -9,7 +9,7 @@ export const metadata: Metadata = {
 export default async function ClassementPersonnelPage() {
   const admin = await createAdminClient();
 
-  const MIN_POINTS_SOLO = 300;
+  const MIN_POINTS_SOLO = 150;
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: _perso } = await (admin as any)
@@ -116,7 +116,7 @@ export default async function ClassementPersonnelPage() {
         </div>
       )}
 
-      {/* ── Joueurs hors classement (< 300 pts) ───────────────────── */}
+      {/* ── Joueurs hors classement (< 150 pts) ───────────────────── */}
       {horsClassement.length > 0 && (
         <section className="mt-10">
           <div className="flex items-center gap-3 mb-4">
