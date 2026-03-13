@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient, createAdminClient } from "@/lib/supabase/server";
+import { handleClassementPersoPriority } from "./conseil-actions";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -9,9 +10,10 @@ const DISCORD_CONSEIL_ROLE_ID = "1478966492388397118";
 const DISCORD_BOT_TOKEN = process.env.DISCORD_BOT_TOKEN;
 const DISCORD_GUILD_ID = "1456715316313981153";
 
-const MAX_SIEGES_ELEVE = 5;
-const MAX_SIEGES_STAFF = 2;
-const MAX_VOTES_ELEVE = 5; // chaque votant peut voter pour 5 candidats max
+const MAX_SIEGES_ELEVE = 3;
+const MAX_SIEGES_STAFF = 3;
+const MAX_VOTES_ELEVE = 3; // chaque votant peut voter pour 3 candidats max
+const MIN_ESCOUADES_TOP3 = 3; // minimum 3 escouades dans le top 3 pour lancer une élection
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -219,6 +221,22 @@ export async function lancerElection(
     return { success: false, error: "Une élection de ce type est déjà en cours." };
   }
 
+  // Vérifier qu'il y a au minimum 3 escouades dans le top 3 (uniquement pour les élections escouade)
+  if (type === "elu_eleve") {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: escouadesTop } = await (admin.from("escouades") as any)
+      .select("id")
+      .order("points", { ascending: false })
+      .limit(3);
+
+    if (!escouadesTop || escouadesTop.length < MIN_ESCOUADES_TOP3) {
+      return {
+        success: false,
+        error: `Il faut au minimum ${MIN_ESCOUADES_TOP3} escouades dans le top 3 pour lancer une élection du conseil.`,
+      };
+    }
+  }
+
   const nbSieges = type === "elu_eleve" ? MAX_SIEGES_ELEVE : MAX_SIEGES_STAFF;
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -347,14 +365,16 @@ export async function voterEleve(
     }
   }
 
-  // Vérifier que le candidat n'est pas déjà dans le conseil (éviter doublons)
+  // Vérifier que le candidat n'est pas déjà dans le conseil (sauf classement_perso qui sera remplacé par priorité)
   const { data: dejaConseil } = await admin
     .from("conseil_membres")
-    .select("id")
+    .select("id, type_siege")
     .eq("utilisateur_id", candidatId)
     .limit(1);
 
-  if (dejaConseil && dejaConseil.length > 0) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const dejaConseilRow = (dejaConseil as any[])?.[0];
+  if (dejaConseilRow && dejaConseilRow.type_siege !== "classement_perso") {
     return { success: false, error: "Ce membre fait déjà partie du conseil." };
   }
 
@@ -454,7 +474,7 @@ export async function voterStaff(
     .eq("votant_id", auth.userId);
 
   if ((count ?? 0) >= MAX_SIEGES_STAFF) {
-    return { success: false, error: "Vous avez déjà utilisé vos 2 votes." };
+    return { success: false, error: "Vous avez déjà utilisé vos 3 votes." };
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -583,6 +603,9 @@ export async function cloturerElection(
 
   // Insérer les nouveaux membres et leur attribuer le rôle Discord
   for (const gagnant of gagnants) {
+    // Priorité : si le gagnant a un siège classement_perso, le retirer (elu_eleve/elu_joker > classement_perso)
+    await handleClassementPersoPriority(gagnant.utilisateur_id);
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await (admin.from("conseil_membres") as any).insert({
       utilisateur_id: gagnant.utilisateur_id,
@@ -696,15 +719,22 @@ export async function nommerMembreConseil(
 
   const admin = await createAdminClient();
 
-  // Vérifier que l'utilisateur n'est pas déjà dans le conseil
+  // Vérifier que l'utilisateur n'est pas déjà dans le conseil (sauf classement_perso qui est remplacé par priorité)
   const { data: deja } = await admin
     .from("conseil_membres")
-    .select("id")
+    .select("id, type_siege")
     .eq("utilisateur_id", utilisateurId)
     .limit(1);
 
-  if (deja && deja.length > 0) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const dejaRow = (deja as any[])?.[0];
+  if (dejaRow && dejaRow.type_siege !== "classement_perso") {
     return { success: false, error: "Cet utilisateur fait déjà partie du conseil." };
+  }
+
+  // Si l'utilisateur a un siège classement_perso, le retirer (priorité elu_eleve/elu_joker > classement_perso)
+  if (dejaRow && dejaRow.type_siege === "classement_perso") {
+    await handleClassementPersoPriority(utilisateurId);
   }
 
   // Vérifier le nombre de sièges occupés pour ce type

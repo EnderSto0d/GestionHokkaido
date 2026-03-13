@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
 import { EvaluationTabsClient } from "@/components/shared/evaluation-tabs";
+import { isConseilMember } from "@/app/(dashboard)/conseil/conseil-actions";
 
 export const metadata: Metadata = {
   title: "Évaluation des élèves — GestionHokkaido",
@@ -58,7 +59,10 @@ export default async function EvaluationPage() {
 
   const isStrategie = (divStrategie?.length ?? 0) > 0;
 
-  if (!utilisateur || (!isProfOrAdmin && !isStrategie)) {
+  // Vérifier si l'utilisateur est membre du conseil
+  const isConseil = await isConseilMember(user.id);
+
+  if (!utilisateur || (!isProfOrAdmin && !isStrategie && !isConseil)) {
     redirect("/profil");
   }
 

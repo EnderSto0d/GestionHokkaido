@@ -41,7 +41,7 @@ export default async function ClassementPersonnelPage() {
         </span>
       </h2>
       <p className="text-sm text-white/40 mb-8">
-        Points accumulés individuellement lors des missions. Le 1er obtient un siège au Conseil.
+        Points accumulés individuellement lors des missions. Le 1er obtient un siège au Conseil (après 24h en 1ère position).
       </p>
 
       {topPerso.length === 0 ? (

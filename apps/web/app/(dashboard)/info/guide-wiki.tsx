@@ -405,7 +405,7 @@ function buildPages(): WikiPage[] {
           <BulletList items={[
             "Un classement individuel (Top 20) est disponible dans l'onglet « Classement Personnel ».",
             "Classé par points personnels (qui ne diminuent jamais).",
-            "Le 1er du classement personnel occupe automatiquement un siège au Conseil des Élèves.",
+            "Le 1er du classement personnel occupe automatiquement un siège au Conseil des Élèves (après 24h en 1ère position). S'il perd la 1ère place, il a 24h pour la récupérer.",
           ]} />
           <Tip>
             Chaque lundi à 4h du matin (UTC), les <strong className="text-white/70">points d&apos;escouade</strong> sont divisés par 2 (arrondis vers zéro). Vos points personnels ne sont jamais affectés. Restez actifs pour maintenir votre position !
@@ -426,9 +426,9 @@ function buildPages(): WikiPage[] {
         <>
           <p>
             Le Conseil des Élèves est l&apos;organe de gouvernance étudiante. Il est composé de <strong className="text-white/70">7 sièges</strong> :
-            4 sièges <strong className="text-orange-300">Élu Escouade</strong> (top 3 escouades + 1 supplémentaire),
-            1 siège <strong className="text-red-300">Classement Personnel</strong> (1er au classement individuel),
-            1 siège <strong className="text-purple-300">Joker</strong> (nommé par le staff),
+            3 sièges <strong className="text-orange-300">Élu Escouade</strong> (élus par les membres du top 3 escouades),
+            1 siège <strong className="text-red-300">Classement Personnel</strong> (1er au classement individuel, après 24h en 1ère position),
+            3 sièges <strong className="text-purple-300">Joker</strong> (nommés par le staff),
             et 1 <strong className="text-amber-300">Chef du conseil</strong> élu en interne.
           </p>
           <p>
@@ -436,7 +436,7 @@ function buildPages(): WikiPage[] {
           </p>
           <p className="font-medium text-white/60">1. Conseil (Vue d&apos;ensemble) :</p>
           <BulletList items={[
-            "Visualisation en demi-cercle des 7 sièges (rouge = classement perso, orange = escouade, violet = joker, ambre = chef).",
+            "Visualisation en demi-cercle des 7 sièges (rouge = classement perso, orange = escouade, violet = joker, ambre = chef). Il faut minimum 3 escouades dans le top 3 pour lancer une élection.",
             "Liste des membres avec nom, grade, type de siège (Élu / Joker) et badge de chef.",
             "Si une élection est en cours, les votes apparaissent directement sous forme de cartes.",
           ]} />
@@ -454,8 +454,8 @@ function buildPages(): WikiPage[] {
           <BulletList items={[
             "Élection du Chef : les membres du conseil élisent un chef parmi eux. Minimum 5 membres actifs requis. Délai de 7 jours entre deux élections.",
             "Le chef est automatiquement déposé s'il est promu Exorciste Pro ou si le nombre de membres tombe sous 5.",
-            "Élection Élu Élève : seuls les membres du top 3 de chaque escouade officielle peuvent voter (jusqu'à 5 votes).",
-            "Élection Élu Joker : les professeurs et admins votent pour nommer les 2 sièges joker (2 votes chacun).",
+            "Élection Élu Élève : seuls les membres du top 3 de chaque escouade officielle peuvent voter (jusqu'à 3 votes). Il faut minimum 3 escouades dans le top 3.",
+            "Élection Élu Joker : les professeurs et admins votent pour nommer les 3 sièges joker (3 votes chacun).",
           ]} />
           {canSeeStaff && (
             <>

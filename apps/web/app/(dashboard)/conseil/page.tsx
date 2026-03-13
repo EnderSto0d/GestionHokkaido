@@ -23,6 +23,7 @@ import {
   getBansActifs,
   executerPropositionsEnAttente,
   isConseilMember,
+  checkClassementPersoSlot,
 } from "./conseil-actions";
 import { ConseilClient } from "./conseil-client";
 
@@ -74,6 +75,7 @@ export default async function ConseilPage() {
   await Promise.all([
     checkChiefDeposition(),
     executerPropositionsEnAttente(),
+    checkClassementPersoSlot(),
   ]);
 
   // 4. Récupérer toutes les données en parallèle
@@ -163,7 +165,7 @@ export default async function ConseilPage() {
             </span>
           </h1>
           <p className="mt-2 text-sm text-white/40">
-            7 sièges : 4 escouades (orange), 1 classement personnel (rouge), 1 joker (violet), 1 chef (ambre).
+            7 sièges : 3 escouades (orange), 1 classement personnel (rouge), 3 jokers (violet). Le chef est élu parmi les membres.
             {userIsCouncilMember && (
               <span className="ml-2 text-amber-400/60">Vous êtes membre du conseil.</span>
             )}

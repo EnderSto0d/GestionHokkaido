@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
 import { AdminPanel } from "@/components/shared/admin-panel";
+import { isConseilMember } from "@/app/(dashboard)/conseil/conseil-actions";
 
 // ─── Métadonnées ──────────────────────────────────────────────────────────────
 
@@ -68,11 +69,14 @@ export default async function AdministrationPage() {
 
   const isStrategie = (divStrategie?.length ?? 0) > 0;
 
-  if (!utilisateur || (!isProfOrAdmin && !isStrategie)) {
+  // Vérifier si l'utilisateur est membre du conseil
+  const isConseil = await isConseilMember(user.id);
+
+  if (!utilisateur || (!isProfOrAdmin && !isStrategie && !isConseil)) {
     redirect("/");
   }
 
-  // Stratégie users can view but not manage levels or see eval details
+  // Stratégie/Conseil users can view but not manage levels or see eval details
   const canManageLevels = isProfOrAdmin;
   const isDirector = utilisateur?.grade_role === "Directeur" || utilisateur?.grade_role === "Co-Directeur";
 
@@ -179,7 +183,7 @@ export default async function AdministrationPage() {
         </header>
 
         {/* ── Panneau d'administration interactif ─────────────────────── */}
-        <AdminPanel students={studentsWithDivisions} canManageLevels={canManageLevels} isDirector={isDirector} />
+        <AdminPanel students={studentsWithDivisions} canManageLevels={canManageLevels} canViewAll={isConseil || isProfOrAdmin} isDirector={isDirector} currentUserRole={utilisateur?.role ?? "eleve"} currentUserGradeRole={utilisateur?.grade_role ?? null} />
       </div>
     </div>
   );

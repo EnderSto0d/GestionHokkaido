@@ -201,11 +201,11 @@ export function ConseilSemicircle({ membres }: { membres: ConseilMembre[] }) {
   const nonChiefMembers = membres.filter((m) => !m.est_chef);
 
   // Fixed seat-type order for the arc:
-  //   4 escouade (orange) · 2 joker (violet) · 1 classement (rouge)
+  //   3 escouade (orange) · 3 joker (violet) · 1 classement (rouge)
   //   When a chief is present he takes the centre and one orange seat is freed.
   const arcSeatTypes: SeatType[] = chef
-    ? ["elu_eleve", "elu_eleve", "elu_eleve", "elu_joker", "elu_joker", "classement_perso"]
-    : ["elu_eleve", "elu_eleve", "elu_eleve", "elu_eleve", "elu_joker", "elu_joker", "classement_perso"];
+    ? ["elu_eleve", "elu_eleve", "elu_joker", "elu_joker", "elu_joker", "classement_perso"]
+    : ["elu_eleve", "elu_eleve", "elu_eleve", "elu_joker", "elu_joker", "elu_joker", "classement_perso"];
 
   // Match each seat to a member of the same type (first-come first-served)
   const remaining = [...nonChiefMembers];

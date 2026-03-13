@@ -1029,3 +1029,260 @@ export async function isConseilMember(userId?: string): Promise<boolean> {
     .limit(1);
   return (data?.length ?? 0) > 0;
 }
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// CLASSEMENT PERSONNEL — SLOT AUTO-MANAGEMENT (24h RULES)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+const CLASSEMENT_PERSO_DELAY_MS = 24 * 60 * 60 * 1000; // 24 hours
+const MIN_POINTS_SOLO = 150;
+
+const DISCORD_CONSEIL_ROLE_ID = "1478966492388397118";
+const DISCORD_BOT_TOKEN_CP = process.env.DISCORD_BOT_TOKEN;
+const DISCORD_GUILD_ID_CP = "1456715316313981153";
+
+async function modifyDiscordRoleCP(
+  discordId: string,
+  roleId: string,
+  action: "add" | "remove"
+): Promise<boolean> {
+  if (!DISCORD_BOT_TOKEN_CP) return false;
+  const method = action === "add" ? "PUT" : "DELETE";
+  try {
+    const res = await fetch(
+      `https://discord.com/api/v10/guilds/${DISCORD_GUILD_ID_CP}/members/${discordId}/roles/${roleId}`,
+      { method, headers: { Authorization: `Bot ${DISCORD_BOT_TOKEN_CP}`, "Content-Type": "application/json" } }
+    );
+    return res.ok;
+  } catch { return false; }
+}
+
+/**
+ * Check and manage the classement_perso council seat.
+ * Called on page load alongside other auto-checks.
+ *
+ * Rules:
+ * 1. Must be #1 in personal ranking for at least 24h to get the seat
+ * 2. If they lose #1 after entering council, 24h grace period to regain it
+ * 3. Priority: elu_eleve / elu_joker > classement_perso
+ *    (if #1 is already in council via another seat type, they don't get classement_perso)
+ */
+export async function checkClassementPersoSlot(): Promise<{
+  action: "none" | "assigned" | "removed" | "tracking_updated";
+  userId?: string;
+}> {
+  const admin = await createAdminClient();
+
+  // 1. Get current #1 in personal ranking
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: topPerso } = await (admin.from("utilisateurs") as any)
+    .select("id, pseudo, points_personnels, discord_id")
+    .gte("points_personnels", MIN_POINTS_SOLO)
+    .order("points_personnels", { ascending: false })
+    .limit(1);
+
+  const currentFirst = topPerso?.[0] ?? null;
+
+  // 2. Get current tracking record (there should be at most one)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: trackingRows } = await (admin as any).from("classement_perso_premier")
+    .select("*")
+    .limit(1);
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const tracking = (trackingRows as any[])?.[0] ?? null;
+
+  // 3. Get current classement_perso council member (if any)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: currentSeatHolder } = await (admin.from("conseil_membres") as any)
+    .select("id, utilisateur_id")
+    .eq("type_siege", "classement_perso")
+    .limit(1);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const seatHolder = (currentSeatHolder as any[])?.[0] ?? null;
+
+  const now = Date.now();
+
+  // ── No one qualifies as #1 ──
+  if (!currentFirst) {
+    // Remove tracking and seat if any
+    if (tracking) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (admin as any).from("classement_perso_premier").delete().eq("id", tracking.id);
+    }
+    if (seatHolder) {
+      await removeClassementPersoSeat(admin, seatHolder);
+    }
+    return { action: seatHolder ? "removed" : "none" };
+  }
+
+  // ── Someone is #1 ──
+  const firstId = currentFirst.id as string;
+
+  // ── Case A: No tracking yet → start tracking ──
+  if (!tracking) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (admin as any).from("classement_perso_premier").insert({
+      utilisateur_id: firstId,
+      premier_depuis: new Date().toISOString(),
+      perdu_premier_le: null,
+    });
+    return { action: "tracking_updated", userId: firstId };
+  }
+
+  // ── Case B: Same person is still #1 ──
+  if (tracking.utilisateur_id === firstId) {
+    // If they had lost first place, they regained it → clear perdu_premier_le
+    if (tracking.perdu_premier_le) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (admin as any).from("classement_perso_premier")
+        .update({ perdu_premier_le: null, mis_a_jour_le: new Date().toISOString() })
+        .eq("id", tracking.id);
+    }
+
+    // Check if they've been #1 long enough (24h)
+    const premierDepuis = new Date(tracking.premier_depuis).getTime();
+    const has24hPassed = (now - premierDepuis) >= CLASSEMENT_PERSO_DELAY_MS;
+
+    if (has24hPassed) {
+      // Check if they're already in council via another seat type (priority rule)
+      const { data: existingMember } = await admin
+        .from("conseil_membres")
+        .select("id, type_siege")
+        .eq("utilisateur_id", firstId)
+        .limit(1);
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const existing = (existingMember as any[])?.[0] ?? null;
+
+      if (existing && existing.type_siege !== "classement_perso") {
+        // Already in council via elu_eleve or elu_joker → priority, no classement_perso seat
+        // If there was an old classement_perso seat for someone else, remove it
+        if (seatHolder && seatHolder.utilisateur_id !== firstId) {
+          await removeClassementPersoSeat(admin, seatHolder);
+          return { action: "removed", userId: seatHolder.utilisateur_id };
+        }
+        return { action: "none" };
+      }
+
+      if (!existing && !seatHolder) {
+        // Not in council at all → assign classement_perso seat
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await (admin.from("conseil_membres") as any).insert({
+          utilisateur_id: firstId,
+          type_siege: "classement_perso",
+        });
+        // Add Discord role
+        if (currentFirst.discord_id) {
+          await modifyDiscordRoleCP(currentFirst.discord_id, DISCORD_CONSEIL_ROLE_ID, "add");
+        }
+        return { action: "assigned", userId: firstId };
+      }
+
+      if (seatHolder && seatHolder.utilisateur_id !== firstId) {
+        // Someone else holds the seat → swap
+        await removeClassementPersoSeat(admin, seatHolder);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await (admin.from("conseil_membres") as any).insert({
+          utilisateur_id: firstId,
+          type_siege: "classement_perso",
+        });
+        if (currentFirst.discord_id) {
+          await modifyDiscordRoleCP(currentFirst.discord_id, DISCORD_CONSEIL_ROLE_ID, "add");
+        }
+        return { action: "assigned", userId: firstId };
+      }
+    }
+
+    return { action: "none" };
+  }
+
+  // ── Case C: Different person is now #1 ──
+  // The old tracked person lost first place
+  if (!tracking.perdu_premier_le) {
+    // Mark the moment they lost first place
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (admin as any).from("classement_perso_premier")
+      .update({ perdu_premier_le: new Date().toISOString(), mis_a_jour_le: new Date().toISOString() })
+      .eq("id", tracking.id);
+  } else {
+    // Check if grace period (24h) has expired
+    const perduLe = new Date(tracking.perdu_premier_le).getTime();
+    const graceExpired = (now - perduLe) >= CLASSEMENT_PERSO_DELAY_MS;
+
+    if (graceExpired) {
+      // Grace period expired → remove old seat holder and start tracking new #1
+      if (seatHolder && seatHolder.utilisateur_id === tracking.utilisateur_id) {
+        await removeClassementPersoSeat(admin, seatHolder);
+      }
+
+      // Replace tracking with the new #1
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (admin as any).from("classement_perso_premier")
+        .update({
+          utilisateur_id: firstId,
+          premier_depuis: new Date().toISOString(),
+          perdu_premier_le: null,
+          mis_a_jour_le: new Date().toISOString(),
+        })
+        .eq("id", tracking.id);
+
+      return { action: seatHolder ? "removed" : "tracking_updated", userId: firstId };
+    }
+  }
+
+  return { action: "none" };
+}
+
+/** Remove classement_perso seat and Discord role */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function removeClassementPersoSeat(admin: any, seatHolder: { id: string; utilisateur_id: string }) {
+  // Get Discord ID
+  const { data: userData } = await admin
+    .from("utilisateurs")
+    .select("discord_id")
+    .eq("id", seatHolder.utilisateur_id)
+    .single();
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const discordId = (userData as any)?.discord_id;
+
+  // Check if they're still in council via another seat type
+  const { data: otherSeats } = await admin
+    .from("conseil_membres")
+    .select("id")
+    .eq("utilisateur_id", seatHolder.utilisateur_id)
+    .neq("type_siege", "classement_perso")
+    .limit(1);
+
+  // Delete the classement_perso seat
+  await admin.from("conseil_membres").delete().eq("id", seatHolder.id);
+
+  // Only remove Discord role if they have no other seat
+  if (discordId && (!otherSeats || otherSeats.length === 0)) {
+    await modifyDiscordRoleCP(discordId, DISCORD_CONSEIL_ROLE_ID, "remove");
+  }
+}
+
+/**
+ * Handle priority when someone with classement_perso gets elected via elu_eleve or elu_joker.
+ * Called during election closure to remove the classement_perso seat if the user got a higher-priority seat.
+ */
+export async function handleClassementPersoPriority(utilisateurId: string): Promise<void> {
+  const admin = await createAdminClient();
+
+  // Check if this user has a classement_perso seat
+  const { data: cpSeat } = await admin
+    .from("conseil_membres")
+    .select("id")
+    .eq("utilisateur_id", utilisateurId)
+    .eq("type_siege", "classement_perso")
+    .limit(1);
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  if (cpSeat && cpSeat.length > 0) {
+    // Remove the classement_perso seat (they now have a higher-priority seat)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await admin.from("conseil_membres").delete().eq("id", (cpSeat[0] as any).id);
+  }
+}

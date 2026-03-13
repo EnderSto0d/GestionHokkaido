@@ -23,6 +23,7 @@ export type Membre = {
     id: string;
     pseudo: string;
     display_name: string | null;
+    points_personnels?: number;
   };
 };
 
@@ -305,6 +306,70 @@ export function EscouadeDetail({
             )}
           </div>
         </section>
+
+        {/* ── Classement membres ───────────────────────────────────────── */}
+        {membres.length > 0 && (
+          <section>
+            <h2 className="text-xs text-white/30 uppercase tracking-widest font-medium mb-4 flex items-center gap-2">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5 text-blue-400/50">
+                <path fillRule="evenodd" d="M10 1a.75.75 0 0 1 .75.75v1.5a.75.75 0 0 1-1.5 0v-1.5A.75.75 0 0 1 10 1ZM5.05 3.05a.75.75 0 0 1 1.06 0l1.062 1.06A.75.75 0 1 1 6.11 5.173L5.05 4.11a.75.75 0 0 1 0-1.06Zm9.9 0a.75.75 0 0 1 0 1.06l-1.06 1.062a.75.75 0 0 1-1.062-1.061l1.061-1.061a.75.75 0 0 1 1.06 0ZM3 8a.75.75 0 0 1 .75-.75h1.5a.75.75 0 0 1 0 1.5h-1.5A.75.75 0 0 1 3 8Zm11 0a.75.75 0 0 1 .75-.75h1.5a.75.75 0 0 1 0 1.5h-1.5A.75.75 0 0 1 14 8Zm-6.828 2.828a.75.75 0 0 1 0 1.061L6.11 12.95a.75.75 0 0 1-1.06-1.06l1.06-1.062a.75.75 0 0 1 1.061 0Zm3.594 0a.75.75 0 0 1 1.06 0l1.062 1.06a.75.75 0 0 1-1.061 1.062l-1.061-1.061a.75.75 0 0 1 0-1.061ZM10 13a.75.75 0 0 1 .75.75v1.5a.75.75 0 0 1-1.5 0v-1.5A.75.75 0 0 1 10 13ZM10 6a4 4 0 1 0 0 8 4 4 0 0 0 0-8Z" clipRule="evenodd" />
+              </svg>
+              Classement
+            </h2>
+
+            {/* Total escouade */}
+            {(() => {
+              const totalPersonnels = membres.reduce((sum, m) => sum + (m.utilisateur.points_personnels ?? 0), 0);
+              const totalEscouade = escouade.points + totalPersonnels;
+              const membresClasses = [...membres].sort(
+                (a, b) => (b.utilisateur.points_personnels ?? 0) - (a.utilisateur.points_personnels ?? 0)
+              );
+              const medals = ["🥇", "🥈", "🥉"];
+              return (
+                <>
+                  <div className="mb-4 flex items-center justify-between px-4 py-3 rounded-xl bg-blue-500/10 ring-1 ring-blue-400/20">
+                    <span className="text-xs font-semibold text-white/50 uppercase tracking-wide">Total escouade</span>
+                    <span className="text-sm font-bold text-blue-300 font-mono">
+                      {totalEscouade.toLocaleString("fr-FR")} pts
+                      <span className="ml-2 text-[10px] text-white/30 font-normal">
+                        ({escouade.points.toLocaleString("fr-FR")} escouade + {totalPersonnels.toLocaleString("fr-FR")} personnels)
+                      </span>
+                    </span>
+                  </div>
+                  <div className="space-y-2">
+                    {membresClasses.map((m, i) => {
+                      const displayName = m.utilisateur.display_name ?? m.utilisateur.pseudo;
+                      const pts = m.utilisateur.points_personnels ?? 0;
+                      const isCurrentUser = m.utilisateur.id === utilisateurCourantId;
+                      return (
+                        <div
+                          key={m.utilisateur.id}
+                          className={`flex items-center gap-3 px-4 py-3 rounded-xl ring-1 transition-colors ${isCurrentUser ? "bg-blue-500/10 ring-blue-400/20" : "bg-white/[0.025] ring-white/5"}`}
+                        >
+                          <span className="flex-shrink-0 w-7 text-center text-base select-none">
+                            {i < 3 ? medals[i] : <span className="text-xs text-white/30 font-bold">{i + 1}</span>}
+                          </span>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-white/90 truncate">
+                              {displayName}
+                              {isCurrentUser && (
+                                <span className="ml-2 text-[10px] text-blue-400/60 font-normal">vous</span>
+                              )}
+                            </p>
+                            <p className="text-[10px] text-white/30">@{m.utilisateur.pseudo}</p>
+                          </div>
+                          <span className="flex-shrink-0 font-mono text-sm font-semibold text-white/70">
+                            {pts.toLocaleString("fr-FR")} <span className="text-[10px] text-white/30 font-normal">pts</span>
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
+              );
+            })()}
+          </section>
+        )}
 
         {/* ── Hauts Faits (historique points) ──────────────────────────── */}
         <section>

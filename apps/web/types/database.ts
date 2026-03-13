@@ -1070,6 +1070,52 @@ export interface Database {
           }
         ];
       };
+      // ─── Historique des points personnels ──────────────────────────────
+      historique_points_personnels: {
+        Row: {
+          id: string;
+          utilisateur_id: string;
+          points: number;
+          justification: string | null;
+          source: string;
+          cree_le: string;
+          attribue_par: string | null;
+        };
+        Insert: {
+          id?: string;
+          utilisateur_id: string;
+          points: number;
+          justification?: string | null;
+          source: string;
+          cree_le?: string;
+          attribue_par?: string | null;
+        };
+        Update: {
+          id?: string;
+          utilisateur_id?: string;
+          points?: number;
+          justification?: string | null;
+          source?: string;
+          cree_le?: string;
+          attribue_par?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "historique_points_personnels_utilisateur_id_fkey";
+            columns: ["utilisateur_id"];
+            isOneToOne: false;
+            referencedRelation: "utilisateurs";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "historique_points_personnels_attribue_par_fkey";
+            columns: ["attribue_par"];
+            isOneToOne: false;
+            referencedRelation: "utilisateurs";
+            referencedColumns: ["id"];
+          }
+        ];
+      };
       // ─── App configuration key-value store ─────────────────────────────
       app_config: {
         Row: {
@@ -1099,6 +1145,10 @@ export interface Database {
       };
       enregistrer_points_logistique: {
         Args: { p_user_id: string; p_points_gained: number };
+        Returns: undefined;
+      };
+      appliquer_malus_logistique: {
+        Args: { p_user_id: string; p_points_retires: number; p_raison: string };
         Returns: undefined;
       };
     };

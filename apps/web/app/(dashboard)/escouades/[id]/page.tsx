@@ -33,6 +33,7 @@ type MembreRaw = {
     avatar_url: string | null;
     prenom_rp: string | null;
     nom_rp: string | null;
+    points_personnels: number | null;
   } | null;
 };
 
@@ -102,7 +103,8 @@ export default async function EscouadePage({
         pseudo,
         avatar_url,
         prenom_rp,
-        nom_rp
+        nom_rp,
+        points_personnels
       )
     `
     )
@@ -126,6 +128,7 @@ export default async function EscouadePage({
           id: u.id,
           pseudo: u.pseudo,
           display_name: displayName,
+          points_personnels: u.points_personnels ?? 0,
         },
       };
     });

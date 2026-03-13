@@ -18,6 +18,7 @@ import type { ClanName } from "@/lib/discord/role-mappings";
 import { normalizePingCible } from "./mission-utils";
 import type { PingCible } from "./mission-utils";
 export type { PingCible } from "./mission-utils";
+import { isConseilMember } from "@/app/(dashboard)/conseil/conseil-actions";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -448,7 +449,7 @@ function buildSummaryEmbed(
     ];
     if (squad.pointsEarned > 0) {
       lines.push(`**Bonus escouade :** +${squad.pointsEarned} pts (${squad.participants.length} × ${bonusPerPerson} pts, ×${squad.multiplier})`);
-      lines.push(`**Total escouade :** ${newTotal} pts`);
+      lines.push(`**Total Gain escouade :** ${newTotal} pts`);
     }
     const value = lines.join("\n").slice(0, 1024);
     fields.push({ name: `🏴 ${squad.nom}`.slice(0, 256), value, inline: false });
@@ -1220,11 +1221,10 @@ export async function terminerMission(missionId: string): Promise<ActionResult> 
     .update({ statut: "terminee" })
     .eq("id", missionId);
 
-  // Attribuer les points personnels à tous les participants
-  // Chaque participant reçoit points_recompense en points personnels
+  // Attribuer les points personnels aux participants présents uniquement
   const allParticipantIds = [
-    ...bySquad.flatMap((sq) => sq.participants.map((p) => p.utilisateur_id)),
-    ...solo.map((p) => p.utilisateur_id),
+    ...bySquad.flatMap((sq) => sq.participants.filter((p) => p.present).map((p) => p.utilisateur_id)),
+    ...solo.filter((p) => p.present).map((p) => p.utilisateur_id),
   ];
 
   const individualPoints = mission.points_recompense;
@@ -1335,11 +1335,18 @@ export async function canViewMissionHistory(): Promise<boolean> {
 
   if (!u) return false;
   const uu = u as { role: string; grade_role: GradeRole | null };
-  return (
+
+  // Admins, professeurs, and high-grade roles can view
+  if (
     uu.role === "admin" ||
     uu.role === "professeur" ||
     (uu.grade_role !== null && PROF_HISTORY_GRADES.includes(uu.grade_role))
-  );
+  ) {
+    return true;
+  }
+
+  // Membres du conseil peuvent aussi consulter l'historique
+  return isConseilMember(user.id);
 }
 
 /** Retourne l'historique des événements de mission (réservé aux profs+). */

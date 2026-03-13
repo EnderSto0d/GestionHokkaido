@@ -706,3 +706,146 @@ export async function syncGradesFromDiscord(): Promise<AdminActionResult & { syn
   revalidatePath("/administration");
   return { success: true, synced, removed, errors };
 }
+
+// ─── Récupérer l'historique des points personnels d'un élève (admin) ──────────
+
+export type PointsHistoriqueRow = {
+  id: string;
+  points: number;
+  justification: string;
+  source: string;
+  cree_le: string;
+  attribue_par_pseudo: string | null;
+};
+
+export async function getPointsHistoriqueAdmin(
+  utilisateurId: string
+): Promise<PointsHistoriqueRow[]> {
+  const auth = await verifyProfOrAdmin();
+  if ("error" in auth) return [];
+
+  const admin = await createAdminClient();
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: _hist, error } = await (admin.from("historique_points_personnels") as any)
+    .select("id, points, justification, source, cree_le, attribue_par")
+    .eq("utilisateur_id", utilisateurId)
+    .order("cree_le", { ascending: false })
+    .limit(200);
+
+  if (error || !_hist) return [];
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const hist = _hist as any[];
+
+  // Récupérer les pseudos des attributeurs
+  const attribueParIds = [...new Set(
+    hist.map((h) => h.attribue_par).filter(Boolean)
+  )] as string[];
+
+  let pseudoMap: Record<string, string> = {};
+  if (attribueParIds.length > 0) {
+    const { data: _pseudos } = await admin
+      .from("utilisateurs")
+      .select("id, pseudo")
+      .in("id", attribueParIds);
+    for (const p of (_pseudos ?? []) as { id: string; pseudo: string }[]) {
+      pseudoMap[p.id] = p.pseudo;
+    }
+  }
+
+  return hist.map((h) => ({
+    id: h.id,
+    points: h.points,
+    justification: h.justification ?? "",
+    source: h.source,
+    cree_le: h.cree_le,
+    attribue_par_pseudo: h.attribue_par ? (pseudoMap[h.attribue_par] ?? null) : null,
+  }));
+}
+
+// ─── Annuler une entrée de points personnels (admin/directeur/prof principal) ─
+
+export async function annulerPointsPersonnels(
+  entryId: string
+): Promise<AdminActionResult> {
+  if (!entryId || typeof entryId !== "string") {
+    return { success: false, error: "Identifiant invalide." };
+  }
+
+  const auth = await verifyProfOrAdmin();
+  if ("error" in auth) return { success: false, error: auth.error };
+
+  const admin = await createAdminClient();
+
+  // Vérifier que l'appelant est admin, prof principal, directeur ou co-directeur
+  const { data: _caller } = await admin
+    .from("utilisateurs")
+    .select("role, grade_role")
+    .eq("id", auth.userId)
+    .single();
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const caller = _caller as any;
+  if (!caller) return { success: false, error: "Utilisateur introuvable." };
+
+  const callerRole = caller.role as string;
+  const callerGradeRole = caller.grade_role as string | null;
+  const canCancel =
+    callerRole === "admin" ||
+    callerGradeRole === "Professeur Principal" ||
+    callerGradeRole === "Directeur" ||
+    callerGradeRole === "Co-Directeur";
+
+  if (!canCancel) {
+    return { success: false, error: "Seuls les administrateurs, le professeur principal et la direction peuvent annuler des points." };
+  }
+
+  // Récupérer l'entrée de points
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: _entry } = await (admin.from("historique_points_personnels") as any)
+    .select("id, utilisateur_id, points")
+    .eq("id", entryId)
+    .maybeSingle();
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const entry = _entry as any;
+  if (!entry) {
+    return { success: false, error: "Entrée de points introuvable." };
+  }
+
+  // Retrancher les points de l'utilisateur (ne pas descendre en dessous de 0)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: _user } = await (admin.from("utilisateurs") as any)
+    .select("points_personnels")
+    .eq("id", entry.utilisateur_id)
+    .single();
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const currentPoints = (_user as any)?.points_personnels ?? 0;
+  const newPoints = Math.max(0, currentPoints - entry.points);
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error: updateErr } = await (admin.from("utilisateurs") as any)
+    .update({ points_personnels: newPoints })
+    .eq("id", entry.utilisateur_id);
+
+  if (updateErr) {
+    return { success: false, error: "Erreur lors de la mise à jour des points." };
+  }
+
+  // Supprimer l'entrée de l'historique
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error: deleteErr } = await (admin.from("historique_points_personnels") as any)
+    .delete()
+    .eq("id", entryId);
+
+  if (deleteErr) {
+    return { success: false, error: "Erreur lors de la suppression de l'entrée." };
+  }
+
+  revalidatePath("/administration");
+  revalidatePath("/classement/personnel");
+  revalidatePath("/profil");
+  return { success: true };
+}

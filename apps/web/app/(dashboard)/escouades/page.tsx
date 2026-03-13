@@ -17,7 +17,7 @@ type EscouadeListRow = {
   points: number;
   proprietaire_id: string;
   utilisateurs: { pseudo: string } | null;
-  membres_escouade: { utilisateur_id: string }[];
+  membres_escouade: { utilisateur_id: string; utilisateurs: { points_personnels: number } | null }[];
 };
 
 export default async function EscouadesListPage({
@@ -59,12 +59,20 @@ export default async function EscouadesListPage({
     .select(`
       id, nom, description, url_logo, points, proprietaire_id,
       utilisateurs!escouades_proprietaire_id_fkey ( pseudo ),
-      membres_escouade ( utilisateur_id )
+      membres_escouade ( utilisateur_id, utilisateurs ( points_personnels ) )
     `)
     .order("points", { ascending: false });
 
-  const allEscouades = (_escouades ?? []) as EscouadeListRow[];
-  const escouades = allEscouades.filter((e) => (e.membres_escouade?.length ?? 0) >= 3);
+  const allEscouades = ((_escouades ?? []) as EscouadeListRow[]).map((e) => {
+    const sumPersonnels = (e.membres_escouade ?? []).reduce(
+      (acc, m) => acc + (m.utilisateurs?.points_personnels ?? 0),
+      0
+    );
+    return { ...e, points_totaux: sumPersonnels + e.points };
+  });
+  const escouades = allEscouades
+    .filter((e) => (e.membres_escouade?.length ?? 0) >= 3)
+    .sort((a, b) => b.points_totaux - a.points_totaux);
   const escouadesIncompletes = allEscouades.filter((e) => (e.membres_escouade?.length ?? 0) < 3);
 
   return (
@@ -169,7 +177,7 @@ export default async function EscouadesListPage({
                           <path fillRule="evenodd" d="M10.868 2.884c-.321-.772-1.415-.772-1.736 0l-1.83 4.401-4.753.381c-.833.067-1.171 1.107-.536 1.651l3.62 3.102-1.106 4.637c-.194.813.691 1.456 1.405 1.02L10 15.591l4.069 2.485c.713.436 1.598-.207 1.404-1.02l-1.106-4.637 3.62-3.102c.635-.544.297-1.584-.536-1.65l-4.752-.382-1.831-4.401Z" clipRule="evenodd" />
                         </svg>
                         <span className="text-sm font-semibold text-red-300 font-mono">
-                          {escouade.points.toLocaleString("fr-FR")} pts
+                          {escouade.points_totaux.toLocaleString("fr-FR")} pts
                         </span>
                       </div>
                       <div className="flex items-center gap-1 text-xs text-white/30">

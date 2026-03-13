@@ -369,7 +369,7 @@ export function ConseilClient({
                   </span>
                 </h2>
                 <p className="text-xs text-white/30">
-                  5 élus par les escouades • 2 jokers nommés par l'équipe professorale
+                  3 élus par les escouades • 3 jokers nommés par l'équipe professorale
                 </p>
               </div>
               {isCouncilMember && (
@@ -417,9 +417,9 @@ export function ConseilClient({
                     </p>
                   </div>
                   <div className={`text-[10px] uppercase tracking-wide ${
-                    m.type_siege === "elu_eleve" ? "text-amber-400/50" : "text-red-400/50"
+                    m.type_siege === "elu_eleve" ? "text-amber-400/50" : m.type_siege === "classement_perso" ? "text-red-400/50" : "text-purple-400/50"
                   }`}>
-                    {m.type_siege === "elu_eleve" ? "Élu" : "Joker"}
+                    {m.type_siege === "elu_eleve" ? "Élu" : m.type_siege === "classement_perso" ? "Classement" : "Joker"}
                   </div>
                   {isProfOrAdmin && (
                     <button
@@ -453,7 +453,7 @@ export function ConseilClient({
                       Élection Élève en cours
                     </h3>
                     <p className="text-[10px] text-white/30 mt-0.5">
-                      5 sièges — vote ouvert aux membres du top 3 escouades
+                      3 sièges — vote ouvert aux membres du top 3 escouades
                     </p>
                   </div>
                   {isProfOrAdmin && (
@@ -588,7 +588,7 @@ export function ConseilClient({
                       Élection Joker en cours
                     </h3>
                     <p className="text-[10px] text-white/30 mt-0.5">
-                      2 sièges — vote réservé aux professeurs
+                      3 sièges — vote réservé aux professeurs
                     </p>
                   </div>
                   <div className="flex flex-wrap gap-2 mt-2 sm:mt-0">
@@ -673,7 +673,7 @@ export function ConseilClient({
                 <div>
                   <p className="text-xs text-red-400/70 mb-3">
                     Sélectionnez un candidat
-                    {mesVotesStaff.length > 0 && ` (${2 - mesVotesStaff.length} vote(s) restant(s))`}
+                    {mesVotesStaff.length > 0 && ` (${3 - mesVotesStaff.length} vote(s) restant(s))`}
                   </p>
                   <input
                     type="text"
@@ -744,7 +744,7 @@ export function ConseilClient({
                 <div className="flex items-center justify-between">
                   <div>
                     <h3 className="font-bold text-white text-sm">Élection Élève en cours</h3>
-                    <p className="text-[10px] text-white/30">5 sièges — vote des top 3 escouades</p>
+                    <p className="text-[10px] text-white/30">3 sièges — vote des top 3 escouades</p>
                   </div>
                   {isProfOrAdmin && (
                     <div className="flex gap-2">
@@ -872,7 +872,7 @@ export function ConseilClient({
                 <div className="flex items-center justify-between">
                   <div>
                     <h3 className="font-bold text-white text-sm">Élection Joker en cours</h3>
-                    <p className="text-[10px] text-white/30">2 sièges — vote de l&apos;équipe professorale</p>
+                    <p className="text-[10px] text-white/30">3 sièges — vote de l&apos;équipe professorale</p>
                   </div>
                   <div className="flex gap-2">
                     <button onClick={() => handleCloturer(electionStaff.id)} disabled={pending} className="px-4 py-2 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-400 text-xs font-medium ring-1 ring-emerald-500/20 transition-all disabled:opacity-50">
@@ -951,7 +951,7 @@ export function ConseilClient({
                 <div>
                   <p className="text-xs text-red-400/70 mb-3">
                     Sélectionnez un candidat
-                    {mesVotesStaff.length > 0 && ` (${2 - mesVotesStaff.length} vote(s) restant(s))`}
+                    {mesVotesStaff.length > 0 && ` (${3 - mesVotesStaff.length} vote(s) restant(s))`}
                   </p>
                   <input
                     type="text"

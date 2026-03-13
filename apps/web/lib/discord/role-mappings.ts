@@ -87,8 +87,8 @@ export const DISCORD_DIVISION_MAP: Record<string, DiscordDivisionEntry> = {
   "1473758816540819750": { division: "Diplomatie", role_division: "superviseur" },
   "1473758954784821413": { division: "Diplomatie", role_division: "membre" },
   // Production et Logistique
-  "1478972206188073084": { division: "Production et Logistique", role_division: "superviseur" },
-  "1478972433062035497": { division: "Production et Logistique", role_division: "membre" },
+  "1478972433062035497": { division: "Production et Logistique", role_division: "superviseur" },
+  "1478972206188073084": { division: "Production et Logistique", role_division: "membre" },
 };
 
 // ─── Fonctions utilitaires ───────────────────────────────────────────────────

@@ -85,12 +85,25 @@ function getPrevGrade(current: GradeSecondaire | null): GradeSecondaire | null {
 export function AdminPanel({
   students,
   canManageLevels = true,
+  canViewAll = false,
   isDirector = false,
+  currentUserRole = "eleve",
+  currentUserGradeRole = null,
 }: {
   students: AdminStudent[];
   canManageLevels?: boolean;
+  canViewAll?: boolean;
   isDirector?: boolean;
+  currentUserRole?: string;
+  currentUserGradeRole?: string | null;
 }) {
+  // Permissions for points history — canViewAll allows read-only access (e.g. conseil members)
+  const canViewPointsHistory = canManageLevels || canViewAll;
+  const canCancelPoints =
+    currentUserRole === "admin" ||
+    currentUserGradeRole === "Professeur Principal" ||
+    currentUserGradeRole === "Directeur" ||
+    currentUserGradeRole === "Co-Directeur";
   const [tab, setTab] = useState<Tab>("search");
   const [search, setSearch] = useState("");
   const [selectedStudent, setSelectedStudent] = useState<AdminStudent | null>(null);
@@ -407,7 +420,7 @@ export function AdminPanel({
           {/* Right: Student profile detail */}
           <div className="lg:col-span-3">
             {selectedStudent ? (
-              <StudentProfilePanel student={selectedStudent} canViewEvalHistory={canManageLevels} />
+              <StudentProfilePanel student={selectedStudent} canViewEvalHistory={canManageLevels || canViewAll} canViewPointsHistory={canViewPointsHistory} canCancelPoints={canCancelPoints} />
             ) : (
               <div className="flex flex-col items-center justify-center py-24 text-center gap-4 rounded-2xl bg-white/[0.01] ring-1 ring-white/5">
                 <div className="w-16 h-16 rounded-2xl bg-red-500/5 flex items-center justify-center">

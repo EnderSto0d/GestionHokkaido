@@ -346,6 +346,145 @@ export async function getDonsForStudent(studentId: string): Promise<DonLogistiqu
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
+// Supervision P&L — Malus logistique (retrait de points)
+// Rôles autorisés : Admin, Directeur, Co-Directeur, Superviseur P&L
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// ─── Guard : Directeur / Co-Directeur / Superviseur P&L ──────────────────────
+
+async function assertSupervisionPLRole(): Promise<string> {
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) throw new Error("Non authentifié.");
+
+  const { data: utilisateur } = await supabase
+    .from("utilisateurs")
+    .select("role, grade_role")
+    .eq("id", user.id)
+    .single();
+
+  const u = utilisateur as { role: RolesUtilisateur; grade_role: GradeRole | null } | null;
+
+  const isAdminOrDirector =
+    u?.role === "admin" ||
+    u?.grade_role === "Directeur" ||
+    u?.grade_role === "Co-Directeur";
+
+  if (isAdminOrDirector) return user.id;
+
+  // Superviseur de la division P&L
+  const { data: divRow } = await supabase
+    .from("utilisateur_divisions")
+    .select("role_division")
+    .eq("utilisateur_id", user.id)
+    .eq("division", DIVISION_PRODUCTION_LOGISTICS)
+    .limit(1);
+
+  if (divRow && divRow.length > 0 && (divRow[0] as any).role_division === "superviseur") {
+    return user.id;
+  }
+
+  throw new Error("Accès refusé : droits de supervision P&L requis (Directeur, Co-Directeur ou Superviseur P&L).");
+}
+
+export async function checkIsSupervisionPL(): Promise<boolean> {
+  try {
+    await assertSupervisionPLRole();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// ─── Action : retirer des points logistique ───────────────────────────────────
+
+export type MalusResult =
+  | { success: true; pointsRetires: number; newLogisticsTotal: number; deltaPersonnel: number }
+  | { success: false; error: string };
+
+/**
+ * Retire des points logistique à un utilisateur.
+ * Contrairement aux dons, le delta de bonus peut être négatif et impacte
+ * les points personnels sans plancher (malus sans limite inférieure).
+ */
+export async function retirerPointsLogistique(
+  targetUserId: string,
+  pointsToRemove: number,
+  raison?: string
+): Promise<MalusResult> {
+  try {
+    const acteurId = await assertSupervisionPLRole();
+
+    if (!Number.isInteger(pointsToRemove) || pointsToRemove <= 0) {
+      return { success: false, error: "Le nombre de points à retirer doit être un entier strictement positif." };
+    }
+    if (pointsToRemove > 999_999) {
+      return { success: false, error: "Le nombre de points à retirer ne peut pas dépasser 999 999." };
+    }
+    if (!targetUserId) {
+      return { success: false, error: "Veuillez sélectionner un utilisateur." };
+    }
+
+    const admin = await createAdminClient();
+
+    // Lire le solde avant
+    const { data: before } = await admin
+      .from("utilisateurs")
+      .select("logistics_points, logistics_bonus_applied, points_personnels")
+      .eq("id", targetUserId)
+      .single();
+
+    if (!before) {
+      return { success: false, error: "Utilisateur introuvable." };
+    }
+
+    const raisonFinale = raison?.trim() || "Malus Production & Logistique";
+
+    // Appel RPC — applique le malus sans plancher
+    const { error: rpcError } = await admin.rpc("appliquer_malus_logistique", {
+      p_user_id: targetUserId,
+      p_points_retires: pointsToRemove,
+      p_raison: raisonFinale,
+    });
+
+    if (rpcError) {
+      return { success: false, error: rpcError.message };
+    }
+
+    // Lire le solde après pour calculer le delta réel
+    const { data: after } = await admin
+      .from("utilisateurs")
+      .select("logistics_points, logistics_bonus_applied, points_personnels")
+      .eq("id", targetUserId)
+      .single();
+
+    const newLogisticsTotal: number = (after as any)?.logistics_points ?? 0;
+    const deltaPersonnel: number =
+      ((after as any)?.points_personnels ?? 0) - ((before as any)?.points_personnels ?? 0);
+
+    // Log de traçabilité dans l'historique (acteur)
+    await admin.from("historique_points_personnels").insert({
+      utilisateur_id: targetUserId,
+      attribue_par: acteurId,
+      points: -pointsToRemove,
+      justification: `[Malus logistique] ${raisonFinale}`,
+      source: "logistique",
+    }).select();
+
+    revalidatePath("/production-logistique");
+
+    return { success: true, pointsRetires: pointsToRemove, newLogisticsTotal, deltaPersonnel };
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Erreur inconnue.";
+    return { success: false, error: message };
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
 // Administration Logistique — CRUD items & plafond global
 // Rôles autorisés : Admin, Directeur, Co-Directeur, Professeur + membre P&L
 // ═══════════════════════════════════════════════════════════════════════════════

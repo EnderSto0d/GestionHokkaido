@@ -11,6 +11,7 @@ import {
   getGlobalBonusCap,
 } from "./actions";
 import { DIVISION_PRODUCTION_LOGISTICS } from "@/lib/logistics/config";
+import { isConseilMember } from "@/app/(dashboard)/conseil/conseil-actions";
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
@@ -42,26 +43,35 @@ export default async function ProductionLogistiquePage() {
     (utilisateur as any)?.grade_role === "Directeur" ||
     (utilisateur as any)?.grade_role === "Co-Directeur";
 
-  // Check P&L division membership (needed for both page access and admin tab)
+  // Check P&L division membership (needed for page access, admin tab, supervision)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: divRow } = await (supabase.from("utilisateur_divisions") as any)
-    .select("id")
+    .select("id, role_division")
     .eq("utilisateur_id", user.id)
     .eq("division", DIVISION_PRODUCTION_LOGISTICS)
     .limit(1);
 
   const isProdLogMember = (divRow?.length ?? 0) > 0;
+  const isProdLogSuperviseur =
+    isProdLogMember && (divRow?.[0] as any)?.role_division === "superviseur";
 
-  if (!isAdminOrDirector && !isProdLogMember) {
+  // Vérifier si l'utilisateur est membre du conseil (accès lecture seule)
+  const isConseil = await isConseilMember(user.id);
+
+  if (!isAdminOrDirector && !isProdLogMember && !isConseil) {
     redirect("/profil");
   }
 
-  // 3. Logistics Admin check — Admin, Directeur, Co-Directeur, ou Professeur+P&L (Responsable)
+  // 3. Logistics Admin check — Admin, Directeur, Co-Directeur, Professeur+P&L, ou Superviseur P&L
   const isLogisticsAdmin =
     isAdminOrDirector ||
-    ((utilisateur as any)?.role === "professeur" && isProdLogMember);
+    ((utilisateur as any)?.role === "professeur" && isProdLogMember) ||
+    isProdLogSuperviseur;
 
-  // 4. Données initiales (config admin chargée uniquement si autorisé)
+  // 4. Supervision P&L — Directeur, Co-Directeur, ou Superviseur P&L
+  const isSupervisionPL = isAdminOrDirector || isProdLogSuperviseur;
+
+  // 5. Données initiales (config admin chargée uniquement si autorisé)
   const [{ logisticsPoints, bonusPersonnel }, utilisateurs, dons, studentStats, globalBonusCap, allItems] =
     await Promise.all([
       getLogisticsPageData(),
@@ -141,6 +151,7 @@ export default async function ProductionLogistiquePage() {
       {/* Form + stats (tabbed with admin config if authorized) */}
       <LogisticsPageContent
         isAdmin={isLogisticsAdmin}
+        isSupervision={isSupervisionPL}
         initialLogisticsPoints={logisticsPoints}
         initialBonusPersonnel={bonusPersonnel}
         utilisateurs={utilisateurs}

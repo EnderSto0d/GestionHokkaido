@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { LogoutButton } from "@/components/shared/logout-button";
 import { DIVISION_PRODUCTION_LOGISTICS } from "@/lib/logistics/config";
+import { isConseilMember } from "@/app/(dashboard)/conseil/conseil-actions";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -151,7 +152,11 @@ export default async function DashboardLayout({
     .limit(1);
 
   const isStrategie = (divStrategie?.length ?? 0) > 0;
-  const canSeeStaffSection = isProfOrAdmin || isStrategie;
+
+  // Vérifier si l'utilisateur est membre du conseil
+  const isConseil = await isConseilMember(user.id);
+
+  const canSeeStaffSection = isProfOrAdmin || isStrategie || isConseil;
 
   // Vérifier si l'utilisateur fait partie de la division Production et Logistique
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -166,7 +171,7 @@ export default async function DashboardLayout({
     utilisateur?.grade_role === "Directeur" ||
     utilisateur?.grade_role === "Co-Directeur";
 
-  const isProductionLogistique = (divProdLog?.length ?? 0) > 0 || isAdminOrDirector;
+  const isProductionLogistique = (divProdLog?.length ?? 0) > 0 || isAdminOrDirector || isConseil;
 
   // Compter les invitations en attente
   const { count: pendingInvitations } = await supabase

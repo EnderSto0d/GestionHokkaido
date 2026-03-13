@@ -6,8 +6,11 @@ import {
   getMoyenneEvaluations,
   getEvaluationsIndividuelles,
   supprimerEvaluationIndividuelleAdmin,
+  getPointsHistoriqueAdmin,
+  annulerPointsPersonnels,
   type MoyenneEvaluations,
   type EvalIndividuelleRow,
+  type PointsHistoriqueRow,
 } from "@/app/(dashboard)/administration/admin-actions";
 import type { AdminStudent } from "./admin-panel";
 
@@ -31,12 +34,37 @@ const RADAR_KEYS = Object.keys(COMPETENCE_LABELS);
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
+const SOURCE_LABELS: Record<string, { label: string; cls: string }> = {
+  manuel: { label: "Professeur", cls: "bg-purple-500/15 text-purple-300 ring-purple-400/20" },
+  logistique: { label: "Logistique", cls: "bg-emerald-500/15 text-emerald-300 ring-emerald-400/20" },
+  mission: { label: "Mission", cls: "bg-blue-500/15 text-blue-300 ring-blue-400/20" },
+};
+
+function getSourceBadge(source: string) {
+  return SOURCE_LABELS[source] ?? { label: source, cls: "bg-white/10 text-white/50 ring-white/15" };
+}
+
+function formatDate(iso: string) {
+  const d = new Date(iso);
+  return d.toLocaleDateString("fr-FR", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
 export function StudentProfilePanel({
   student,
   canViewEvalHistory = true,
+  canViewPointsHistory = false,
+  canCancelPoints = false,
 }: {
   student: AdminStudent;
   canViewEvalHistory?: boolean;
+  canViewPointsHistory?: boolean;
+  canCancelPoints?: boolean;
 }) {
   const [moyenne, setMoyenne] = useState<MoyenneEvaluations | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -44,6 +72,10 @@ export function StudentProfilePanel({
   const [loadingMoyenne, setLoadingMoyenne] = useState(true);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [pointsHistoryOpen, setPointsHistoryOpen] = useState(false);
+  const [pointsHistory, setPointsHistory] = useState<PointsHistoriqueRow[]>([]);
+  const [loadingPointsHistory, setLoadingPointsHistory] = useState(false);
+  const [cancellingId, setCancellingId] = useState<string | null>(null);
   const [, startTransition] = useTransition();
 
   // Fetch average evaluations
@@ -52,6 +84,8 @@ export function StudentProfilePanel({
     setLoadingMoyenne(true);
     setHistoryOpen(false);
     setHistory([]);
+    setPointsHistoryOpen(false);
+    setPointsHistory([]);
 
     getMoyenneEvaluations(student.id).then((data) => {
       if (!cancelled) {
@@ -82,6 +116,29 @@ export function StudentProfilePanel({
         setHistory((prev) => prev.filter((e) => e.id !== evalId));
       }
       setDeletingId(null);
+    });
+  }
+
+  function handleOpenPointsHistory() {
+    setPointsHistoryOpen(true);
+    setLoadingPointsHistory(true);
+
+    startTransition(async () => {
+      const data = await getPointsHistoriqueAdmin(student.id);
+      setPointsHistory(data);
+      setLoadingPointsHistory(false);
+    });
+  }
+
+  function handleCancelPoints(entryId: string) {
+    if (!confirm("Êtes-vous sûr de vouloir annuler cette attribution de points ? Les points seront retirés de l'élève.")) return;
+    setCancellingId(entryId);
+    startTransition(async () => {
+      const result = await annulerPointsPersonnels(entryId);
+      if (result.success) {
+        setPointsHistory((prev) => prev.filter((e) => e.id !== entryId));
+      }
+      setCancellingId(null);
     });
   }
 
@@ -312,6 +369,108 @@ export function StudentProfilePanel({
           )}
         </div>
       )}
+        </>
+      )}
+
+      {/* ── Points personnels history section ──────────────────────── */}
+      {canViewPointsHistory && (
+        <>
+          <div className="h-px bg-gradient-to-r from-amber-500/20 via-white/8 to-transparent" />
+
+          {!pointsHistoryOpen ? (
+            <button
+              onClick={handleOpenPointsHistory}
+              className="w-full py-2.5 rounded-xl bg-amber-600/20 hover:bg-amber-600/30 text-amber-300 text-sm font-semibold transition-colors ring-1 ring-amber-500/20 flex items-center justify-center gap-2"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
+                <path fillRule="evenodd" d="M5.75 2a.75.75 0 0 1 .75.75V4h7V2.75a.75.75 0 0 1 1.5 0V4h.25A2.75 2.75 0 0 1 18 6.75v8.5A2.75 2.75 0 0 1 15.25 18H4.75A2.75 2.75 0 0 1 2 15.25v-8.5A2.75 2.75 0 0 1 4.75 4H5V2.75A.75.75 0 0 1 5.75 2Zm-1 5.5c-.69 0-1.25.56-1.25 1.25v6.5c0 .69.56 1.25 1.25 1.25h10.5c.69 0 1.25-.56 1.25-1.25v-6.5c0-.69-.56-1.25-1.25-1.25H4.75Z" clipRule="evenodd" />
+              </svg>
+              Voir l&apos;historique des points personnels
+            </button>
+          ) : (
+            <div className="space-y-4 animate-fade-in">
+              <div className="flex items-center justify-between">
+                <h4 className="text-xs text-white/40 uppercase tracking-widest font-semibold">
+                  Historique des points personnels
+                </h4>
+                <button
+                  onClick={() => setPointsHistoryOpen(false)}
+                  className="text-xs text-white/30 hover:text-white/60 transition-colors"
+                >
+                  Fermer
+                </button>
+              </div>
+
+              {loadingPointsHistory ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="w-5 h-5 rounded-full border-2 border-amber-400 border-t-transparent animate-spin" />
+                </div>
+              ) : pointsHistory.length === 0 ? (
+                <p className="text-white/30 text-sm text-center py-4">
+                  Aucun historique de points personnels.
+                </p>
+              ) : (
+                <div className="space-y-2 max-h-[400px] overflow-y-auto pr-1">
+                  {pointsHistory.map((entry) => {
+                    const badge = getSourceBadge(entry.source);
+                    return (
+                      <div
+                        key={entry.id}
+                        className="flex items-start gap-3 p-3 rounded-xl bg-white/[0.02] ring-1 ring-white/5 hover:bg-white/[0.04] transition-colors"
+                      >
+                        {/* Points */}
+                        <div className="flex-shrink-0 min-w-[52px] text-right">
+                          <span className="text-base font-bold text-amber-400">
+                            +{entry.points}
+                          </span>
+                        </div>
+
+                        {/* Détails */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className={`px-2 py-0.5 text-[10px] font-semibold rounded-md ring-1 ${badge.cls}`}>
+                              {badge.label}
+                            </span>
+                            <span className="text-[10px] text-white/25">
+                              {formatDate(entry.cree_le)}
+                            </span>
+                          </div>
+                          {entry.justification && (
+                            <p className="mt-1 text-xs text-white/50 leading-relaxed">
+                              {entry.justification}
+                            </p>
+                          )}
+                          {entry.attribue_par_pseudo && (
+                            <p className="mt-0.5 text-[10px] text-white/25">
+                              par {entry.attribue_par_pseudo}
+                            </p>
+                          )}
+                        </div>
+
+                        {/* Bouton annuler */}
+                        {canCancelPoints && (
+                          <button
+                            onClick={() => handleCancelPoints(entry.id)}
+                            disabled={cancellingId === entry.id}
+                            title="Annuler cette attribution de points"
+                            className="flex-shrink-0 p-1.5 rounded-lg bg-red-500/10 text-red-400/60 hover:bg-red-500/20 hover:text-red-400 ring-1 ring-red-500/20 transition-all disabled:opacity-40"
+                          >
+                            {cancellingId === entry.id ? (
+                              <div className="w-3.5 h-3.5 rounded-full border-2 border-red-400 border-t-transparent animate-spin" />
+                            ) : (
+                              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="w-3.5 h-3.5">
+                                <path fillRule="evenodd" d="M5 3.25V4H2.75a.75.75 0 0 0 0 1.5h.3l.815 8.15A1.5 1.5 0 0 0 5.357 15h5.285a1.5 1.5 0 0 0 1.493-1.35l.815-8.15h.3a.75.75 0 0 0 0-1.5H11v-.75A2.25 2.25 0 0 0 8.75 1h-1.5A2.25 2.25 0 0 0 5 3.25Zm2.25-.75a.75.75 0 0 0-.75.75V4h3v-.75a.75.75 0 0 0-.75-.75h-1.5ZM6.05 6a.75.75 0 0 1 .787.713l.275 5.5a.75.75 0 0 1-1.498.075l-.275-5.5A.75.75 0 0 1 6.05 6Zm3.9 0a.75.75 0 0 1 .712.787l-.275 5.5a.75.75 0 0 1-1.498-.075l.275-5.5a.75.75 0 0 1 .786-.711Z" clipRule="evenodd" />
+                              </svg>
+                            )}
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
         </>
       )}
     </div>
