@@ -158,6 +158,8 @@ export function ConseilClient({
 
   const electionEleve = elections.find((e) => e.type === "elu_eleve");
   const electionStaff = elections.find((e) => e.type === "elu_joker");
+  const siegesJokerOccupes = membres.filter((m) => m.type_siege === "elu_joker").length;
+  const maxVotesStaff = (electionStaff?.nb_sieges ?? 3) - siegesJokerOccupes;
 
   function showFeedback(msg: string, isError: boolean) {
     if (isError) {
@@ -588,7 +590,7 @@ export function ConseilClient({
                       Élection Joker en cours
                     </h3>
                     <p className="text-[10px] text-white/30 mt-0.5">
-                      3 sièges — vote réservé aux professeurs
+                      {electionStaff.nb_sieges} sièges ({electionStaff.nb_sieges - siegesJokerOccupes} restant{electionStaff.nb_sieges - siegesJokerOccupes > 1 ? "s" : ""}) — vote réservé aux professeurs
                     </p>
                   </div>
                   <div className="flex flex-wrap gap-2 mt-2 sm:mt-0">
@@ -673,7 +675,7 @@ export function ConseilClient({
                 <div>
                   <p className="text-xs text-red-400/70 mb-3">
                     Sélectionnez un candidat
-                    {mesVotesStaff.length > 0 && ` (${3 - mesVotesStaff.length} vote(s) restant(s))`}
+                    {mesVotesStaff.length > 0 && ` (${maxVotesStaff - mesVotesStaff.length} vote(s) restant(s))`}
                   </p>
                   <input
                     type="text"
@@ -690,7 +692,7 @@ export function ConseilClient({
                         <button
                           key={c.id}
                           onClick={() => handleVoteStaff(c.id)}
-                          disabled={pending}
+                          disabled={pending || mesVotesStaff.length >= maxVotesStaff}
                           className="w-full flex items-center gap-3 px-3 py-2 rounded-lg bg-white/[0.02] hover:bg-red-500/10 ring-1 ring-white/5 hover:ring-red-500/20 text-left transition-all disabled:opacity-50"
                         >
                           <Avatar url={c.avatar_url} pseudo={c.pseudo} size="sm" />
@@ -872,7 +874,7 @@ export function ConseilClient({
                 <div className="flex items-center justify-between">
                   <div>
                     <h3 className="font-bold text-white text-sm">Élection Joker en cours</h3>
-                    <p className="text-[10px] text-white/30">3 sièges — vote de l&apos;équipe professorale</p>
+                    <p className="text-[10px] text-white/30">{electionStaff.nb_sieges} sièges ({electionStaff.nb_sieges - siegesJokerOccupes} restant{electionStaff.nb_sieges - siegesJokerOccupes > 1 ? "s" : ""}) — vote de l&apos;équipe professorale</p>
                   </div>
                   <div className="flex gap-2">
                     <button onClick={() => handleCloturer(electionStaff.id)} disabled={pending} className="px-4 py-2 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-400 text-xs font-medium ring-1 ring-emerald-500/20 transition-all disabled:opacity-50">
@@ -951,7 +953,7 @@ export function ConseilClient({
                 <div>
                   <p className="text-xs text-red-400/70 mb-3">
                     Sélectionnez un candidat
-                    {mesVotesStaff.length > 0 && ` (${3 - mesVotesStaff.length} vote(s) restant(s))`}
+                    {mesVotesStaff.length > 0 && ` (${maxVotesStaff - mesVotesStaff.length} vote(s) restant(s))`}
                   </p>
                   <input
                     type="text"
@@ -968,7 +970,7 @@ export function ConseilClient({
                         <button
                           key={c.id}
                           onClick={() => handleVoteStaff(c.id)}
-                          disabled={pending}
+                          disabled={pending || mesVotesStaff.length >= maxVotesStaff}
                           className="w-full flex items-center gap-3 px-3 py-2 rounded-lg bg-white/[0.02] hover:bg-red-500/10 ring-1 ring-white/5 hover:ring-red-500/20 text-left transition-all disabled:opacity-50"
                         >
                           <Avatar url={c.avatar_url} pseudo={c.pseudo} size="sm" />

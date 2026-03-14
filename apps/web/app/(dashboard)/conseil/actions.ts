@@ -466,15 +466,23 @@ export async function voterStaff(
     return { success: false, error: "Vous avez déjà voté pour ce candidat." };
   }
 
-  // Compter les votes du staff (max 2)
+  // Compter les sièges joker déjà occupés
+  const { count: siegesOccupes } = await admin
+    .from("conseil_membres")
+    .select("id", { count: "exact", head: true })
+    .eq("type_siege", "elu_joker");
+
+  const maxVotes = MAX_SIEGES_STAFF - (siegesOccupes ?? 0);
+
+  // Compter les votes du staff
   const { count } = await admin
     .from("votes_conseil")
     .select("id", { count: "exact", head: true })
     .eq("election_id", electionId)
     .eq("votant_id", auth.userId);
 
-  if ((count ?? 0) >= MAX_SIEGES_STAFF) {
-    return { success: false, error: "Vous avez déjà utilisé vos 3 votes." };
+  if ((count ?? 0) >= maxVotes) {
+    return { success: false, error: `Vous avez déjà utilisé vos ${maxVotes} vote(s).` };
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
