@@ -237,7 +237,21 @@ export async function lancerElection(
     }
   }
 
-  const nbSieges = type === "elu_eleve" ? MAX_SIEGES_ELEVE : MAX_SIEGES_STAFF;
+  // Compter les sièges déjà occupés pour ce type afin de n'élire que les places restantes
+  const { count: siegesOccupes } = await admin
+    .from("conseil_membres")
+    .select("id", { count: "exact", head: true })
+    .eq("type_siege", type);
+
+  const maxSieges = type === "elu_eleve" ? MAX_SIEGES_ELEVE : MAX_SIEGES_STAFF;
+  const nbSieges = maxSieges - (siegesOccupes ?? 0);
+
+  if (nbSieges <= 0) {
+    return {
+      success: false,
+      error: `Tous les sièges de type "${type === "elu_eleve" ? "élève" : "joker"}" sont déjà occupés.`,
+    };
+  }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { error } = await (admin.from("elections_conseil") as any).insert({
@@ -571,42 +585,24 @@ export async function cloturerElection(
   const nbSieges = election.nb_sieges as number;
   const typeSiege = election.type as "elu_eleve" | "elu_joker";
 
-  // Obtenir les résultats triés
-  const resultats = await getResultatsElection(electionId);
-  const gagnants = resultats.slice(0, nbSieges);
-
-  if (gagnants.length === 0) {
-    return { success: false, error: "Aucun vote enregistré, impossible de clôturer." };
-  }
-
-  // Retirer les anciens membres du conseil pour ce type de siège
-  const { data: anciensMembres } = await admin
+  // Récupérer les membres actuels de ce type pour les exclure des gagnants
+  const { data: membresActuels } = await admin
     .from("conseil_membres")
     .select("utilisateur_id")
     .eq("type_siege", typeSiege);
 
-  // Retirer le rôle Discord des anciens membres
-  if (anciensMembres) {
-    for (const ancien of anciensMembres) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const uid = (ancien as any).utilisateur_id;
-      const { data: _userData } = await admin
-        .from("utilisateurs")
-        .select("discord_id")
-        .eq("id", uid)
-        .single();
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const discordId = (_userData as any)?.discord_id;
-      if (discordId) {
-        await modifyDiscordRole(discordId, DISCORD_CONSEIL_ROLE_ID, "remove");
-      }
-    }
+  const membresActuelsIds = new Set(
+    (membresActuels ?? []).map((m) => (m as any).utilisateur_id as string)
+  );
 
-    // Supprimer les anciens sièges
-    await admin
-      .from("conseil_membres")
-      .delete()
-      .eq("type_siege", typeSiege);
+  // Obtenir les résultats triés, exclure les déjà-membres, prendre les sièges restants
+  const resultats = await getResultatsElection(electionId);
+  const gagnants = resultats
+    .filter((c) => !membresActuelsIds.has(c.utilisateur_id))
+    .slice(0, nbSieges);
+
+  if (gagnants.length === 0) {
+    return { success: false, error: "Aucun vote enregistré, impossible de clôturer." };
   }
 
   // Insérer les nouveaux membres et leur attribuer le rôle Discord
