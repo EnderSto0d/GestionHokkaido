@@ -44,6 +44,16 @@ const COURS_CREATOR_GRADE_ROLES: GradeRole[] = [
 /** Grades scolaires autorisés à créer un cours. */
 const COURS_CREATOR_GRADE_SECONDAIRES: GradeSecondaire[] = ["Terminal"];
 
+/** Grades de combat autorisés à créer un cours (Classe 2 ou supérieur). */
+const COURS_CREATOR_GRADES: Grades[] = [
+  "Classe 2",
+  "Semi Classe 1",
+  "Classe 1",
+  "Semi Classe S",
+  "Classe S",
+  "Classe Apo",
+];
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export type CoursPayload = {
@@ -111,6 +121,7 @@ function getSiteUrl(): string {
  *  1. Admin ou Professeur (rôle DB)
  *  2. Exorciste Pro ou supérieur (grade_role)
  *  3. Terminal (grade_secondaire)
+ *  4. Classe 2 ou supérieur (grade)
  */
 async function verifyCoursCreator(): Promise<
   { userId: string; discordId: string } | { error: string }
@@ -121,7 +132,7 @@ async function verifyCoursCreator(): Promise<
 
   const { data: u } = await supabase
     .from("utilisateurs")
-    .select("role, grade_role, grade_secondaire, discord_id")
+    .select("role, grade, grade_role, grade_secondaire, discord_id")
     .eq("id", user.id)
     .single();
 
@@ -129,6 +140,7 @@ async function verifyCoursCreator(): Promise<
 
   const uu = u as {
     role: string;
+    grade: Grades | null;
     grade_role: GradeRole | null;
     grade_secondaire: GradeSecondaire | null;
     discord_id: string | null;
@@ -146,6 +158,11 @@ async function verifyCoursCreator(): Promise<
 
   // Terminal
   if (uu.grade_secondaire && COURS_CREATOR_GRADE_SECONDAIRES.includes(uu.grade_secondaire)) {
+    return { userId: user.id, discordId: uu.discord_id ?? "" };
+  }
+
+  // Classe 2 ou supérieur
+  if (uu.grade && COURS_CREATOR_GRADES.includes(uu.grade)) {
     return { userId: user.id, discordId: uu.discord_id ?? "" };
   }
 
