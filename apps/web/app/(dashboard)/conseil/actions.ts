@@ -3,12 +3,21 @@
 import { revalidatePath } from "next/cache";
 import { createClient, createAdminClient } from "@/lib/supabase/server";
 import { handleClassementPersoPriority } from "./conseil-actions";
+import {
+  sendDiscordChannelMessage,
+  setChannelRolePermission,
+  deleteChannelRolePermission,
+} from "@/lib/discord/guild-member";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const DISCORD_CONSEIL_ROLE_ID = "1478966492388397118";
 const DISCORD_BOT_TOKEN = process.env.DISCORD_BOT_TOKEN;
 const DISCORD_GUILD_ID = "1456715316313981153";
+
+// Salons Discord du Conseil
+const DISCORD_ELECTION_CHANNEL_ID = "1482820615697338378";
+const DISCORD_TOP3_DISCUSSION_CHANNEL_ID = "1482913786825539818";
 
 const MAX_SIEGES_ELEVE = 3;
 const MAX_SIEGES_STAFF = 3;
@@ -183,6 +192,128 @@ export async function getConseilMembres(): Promise<ConseilMembre[]> {
   }));
 }
 
+// ─── Notifications Discord ────────────────────────────────────────────────────
+
+type EscouadeDiscord = {
+  id: string;
+  nom: string;
+  discord_role_id: string | null;
+  points: number;
+};
+
+/** Envoie un embed dans le salon d'élection et pinge les top 3 escouades si nécessaire. */
+async function notifyElectionDiscord(
+  type: "elu_eleve" | "elu_joker",
+  nbSieges: number
+): Promise<void> {
+  const appUrl =
+    process.env.NEXTAUTH_URL ??
+    process.env.NEXT_PUBLIC_APP_URL ??
+    (process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : "") ||
+    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "");
+  const voteUrl = `${appUrl}/conseil`;
+
+  let content: string | undefined;
+  let typeLabel: string;
+  let description: string;
+
+  if (type === "elu_eleve") {
+    const admin = await createAdminClient();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data } = await (admin.from("escouades") as any)
+      .select("id, nom, discord_role_id, points")
+      .order("points", { ascending: false })
+      .limit(3);
+
+    const top3 = (data ?? []) as EscouadeDiscord[];
+    const pings = top3
+      .filter((e) => e.discord_role_id)
+      .map((e) => `<@&${e.discord_role_id}>`)
+      .join(" ");
+    if (pings) content = pings;
+
+    typeLabel = "Sièges Élève — Top 3 Escouades";
+    description =
+      "Une élection pour les **sièges élève** du Conseil vient d'être lancée !\n\n" +
+      "Les membres des escouades du **Top 3** peuvent voter pour leurs représentants.\n\n" +
+      `💬 Salon de discussion : <#${DISCORD_TOP3_DISCUSSION_CHANNEL_ID}>`;
+  } else {
+    typeLabel = "Sièges Joker — Équipe Professorale";
+    description =
+      "Une élection pour les **sièges joker** du Conseil vient d'être lancée !\n\n" +
+      "Les membres de l'équipe professorale peuvent voter.";
+  }
+
+  await sendDiscordChannelMessage(DISCORD_ELECTION_CHANNEL_ID, {
+    content,
+    embeds: [
+      {
+        title: "🗳️ Nouvelle Élection du Conseil",
+        description,
+        color: 0xf5a623,
+        fields: [
+          { name: "Type", value: typeLabel, inline: true },
+          { name: "Sièges à pourvoir", value: String(nbSieges), inline: true },
+        ],
+        footer: { text: "Cliquez sur le bouton ci-dessous pour accéder au vote" },
+        timestamp: new Date().toISOString(),
+      },
+    ],
+    components: [
+      {
+        type: 1,
+        components: [
+          {
+            type: 2,
+            style: 5,
+            label: "🗳️ Voter",
+            url: voteUrl,
+          },
+        ],
+      },
+    ],
+  });
+}
+
+/**
+ * Synchronise les permissions du salon de discussion Top 3 escouades.
+ * Les 3 escouades les mieux classées obtiennent l'accès (VIEW + SEND + HISTORY).
+ * Les autres escouades qui avaient un overwrite le perdent.
+ */
+export async function syncTop3DiscussionChannel(): Promise<void> {
+  const admin = await createAdminClient();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: escouades } = await (admin.from("escouades") as any)
+    .select("id, discord_role_id, points")
+    .not("discord_role_id", "is", null)
+    .order("points", { ascending: false });
+
+  if (!escouades || escouades.length === 0) return;
+
+  const typedEscouades = escouades as { id: string; discord_role_id: string; points: number }[];
+  const top3RoleIds = new Set(typedEscouades.slice(0, 3).map((e) => e.discord_role_id));
+
+  // VIEW_CHANNEL (1024) | SEND_MESSAGES (2048) | READ_MESSAGE_HISTORY (65536) = 68608
+  const ALLOW = "68608";
+  const DENY = "0";
+
+  for (const escouade of typedEscouades) {
+    if (top3RoleIds.has(escouade.discord_role_id)) {
+      await setChannelRolePermission(
+        DISCORD_TOP3_DISCUSSION_CHANNEL_ID,
+        escouade.discord_role_id,
+        ALLOW,
+        DENY
+      );
+    } else {
+      await deleteChannelRolePermission(
+        DISCORD_TOP3_DISCUSSION_CHANNEL_ID,
+        escouade.discord_role_id
+      );
+    }
+  }
+}
+
 // ─── Lire les élections en cours ──────────────────────────────────────────────
 
 export async function getElectionsEnCours(): Promise<ElectionInfo[]> {
@@ -263,6 +394,18 @@ export async function lancerElection(
 
   if (error) {
     return { success: false, error: "Erreur lors de la création de l'élection." };
+  }
+
+  // Notifications Discord
+  try {
+    await notifyElectionDiscord(type, nbSieges);
+  } catch (err) {
+    console.error("[conseil] Notification élection Discord échouée:", err);
+  }
+  if (type === "elu_eleve") {
+    syncTop3DiscussionChannel().catch((err) =>
+      console.error("[conseil] Sync salon discussion Top 3 échoué:", err)
+    );
   }
 
   revalidatePath("/conseil");
@@ -392,18 +535,6 @@ export async function voterEleve(
     return { success: false, error: "Ce membre fait déjà partie du conseil." };
   }
 
-  // Vérifier que le vote n'a pas été annulé (bloqué définitivement)
-  const { data: bloque } = await admin
-    .from("votes_conseil_bloques")
-    .select("id")
-    .eq("election_id", electionId)
-    .eq("votant_id", user.id)
-    .eq("candidat_id", candidatId)
-    .limit(1);
-  if (bloque && bloque.length > 0) {
-    return { success: false, error: "Vous avez annulé votre vote pour ce candidat, vous ne pouvez plus voter pour lui." };
-  }
-
   // Vérifier qu'on n'a pas déjà voté pour ce candidat
   const { data: dejaVote } = await admin
     .from("votes_conseil")
@@ -415,6 +546,19 @@ export async function voterEleve(
 
   if (dejaVote && dejaVote.length > 0) {
     return { success: false, error: "Vous avez déjà voté pour ce candidat." };
+  }
+
+  // Vérifier que le vote n'a pas été annulé (bloqué définitivement)
+  const { data: bloque } = await admin
+    .from("votes_conseil_bloques")
+    .select("id")
+    .eq("election_id", electionId)
+    .eq("votant_id", user.id)
+    .eq("candidat_id", candidatId)
+    .limit(1);
+
+  if (bloque && bloque.length > 0) {
+    return { success: false, error: "Vous avez annulé votre vote pour ce candidat, vous ne pouvez plus voter pour lui." };
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -455,18 +599,6 @@ export async function voterStaff(
     return { success: false, error: "Élection Joker non en cours." };
   }
 
-  // Vérifier que le vote n'a pas été annulé (bloqué définitivement)
-  const { data: bloque } = await admin
-    .from("votes_conseil_bloques")
-    .select("id")
-    .eq("election_id", electionId)
-    .eq("votant_id", auth.userId)
-    .eq("candidat_id", candidatId)
-    .limit(1);
-  if (bloque && bloque.length > 0) {
-    return { success: false, error: "Vous avez annulé votre vote pour ce candidat, vous ne pouvez plus voter pour lui." };
-  }
-
   // Vérifier doublons
   const { data: dejaVote } = await admin
     .from("votes_conseil")
@@ -478,6 +610,19 @@ export async function voterStaff(
 
   if (dejaVote && dejaVote.length > 0) {
     return { success: false, error: "Vous avez déjà voté pour ce candidat." };
+  }
+
+  // Vérifier que le vote n'a pas été annulé (bloqué définitivement)
+  const { data: bloque } = await admin
+    .from("votes_conseil_bloques")
+    .select("id")
+    .eq("election_id", electionId)
+    .eq("votant_id", auth.userId)
+    .eq("candidat_id", candidatId)
+    .limit(1);
+
+  if (bloque && bloque.length > 0) {
+    return { success: false, error: "Vous avez annulé votre vote pour ce candidat, vous ne pouvez plus voter pour lui." };
   }
 
   // Compter les sièges joker déjà occupés
@@ -1230,6 +1375,7 @@ export async function annulerMonVote(
 ): Promise<ActionResult> {
   const user = await verifyAuth();
   if (!user) return { success: false, error: "Non authentifié." };
+
   const admin = await createAdminClient();
 
   // Vérifier que l'élection est en cours
@@ -1252,6 +1398,7 @@ export async function annulerMonVote(
     .eq("votant_id", user.id)
     .eq("candidat_id", candidatId)
     .limit(1);
+
   if (!existingVote || existingVote.length === 0) {
     return { success: false, error: "Aucun vote trouvé pour ce candidat." };
   }
@@ -1263,6 +1410,7 @@ export async function annulerMonVote(
     .eq("election_id", electionId)
     .eq("votant_id", user.id)
     .eq("candidat_id", candidatId);
+
   if (delErr) {
     return { success: false, error: "Erreur lors de la suppression du vote." };
   }
@@ -1286,12 +1434,16 @@ export async function getMesVotesBloques(
 ): Promise<string[]> {
   const user = await verifyAuth();
   if (!user) return [];
+
   const admin = await createAdminClient();
+
   const { data } = await admin
     .from("votes_conseil_bloques")
     .select("candidat_id")
     .eq("election_id", electionId)
     .eq("votant_id", user.id);
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return (data ?? []).map((v: any) => v.candidat_id as string);
 }
+

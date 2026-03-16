@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient, createAdminClient } from "@/lib/supabase/server";
 import type { ActionResult } from "./actions";
+import { sendDiscordChannelMessage } from "@/lib/discord/guild-member";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -10,6 +11,9 @@ const MIN_MEMBERS_FOR_ELECTION = 5;
 const ELECTION_COOLDOWN_DAYS = 7;
 const EXECUTION_DELAY_MS = 60 * 60 * 1000; // 1 hour
 const MAX_BAN_HOURS = 168; // 1 week
+
+// Salon Discord des propositions du Conseil
+const DISCORD_PROPOSITIONS_CHANNEL_ID = "1482815140717006979";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -468,6 +472,79 @@ export async function checkChiefDeposition(): Promise<{
 // PROPOSAL / VOTING SYSTEM
 // ═══════════════════════════════════════════════════════════════════════════════
 
+// ─── Notification Discord — Propositions ─────────────────────────────────────
+
+/** Envoie un embed dans le salon des propositions du Conseil. */
+async function notifyPropositionDiscord(
+  titre: string,
+  description: string | null,
+  type: "general" | "derank",
+  proposeurId: string,
+  ciblePseudo?: string
+): Promise<void> {
+  const appUrl =
+    process.env.NEXTAUTH_URL ??
+    process.env.NEXT_PUBLIC_APP_URL ??
+    (process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : "") ||
+    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "");
+  const propUrl = `${appUrl}/conseil`;
+
+  const admin = await createAdminClient();
+  const { data: proposeur } = await admin
+    .from("utilisateurs")
+    .select("pseudo")
+    .eq("id", proposeurId)
+    .single();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const proposeurPseudo = (proposeur as any)?.pseudo ?? "Inconnu";
+
+  const typeLabel = type === "general" ? "Générale" : "Déclassement";
+  const color = type === "general" ? 0x3498db : 0xe74c3c;
+
+  const fields: { name: string; value: string; inline: boolean }[] = [
+    { name: "Type", value: typeLabel, inline: true },
+    { name: "Proposé par", value: proposeurPseudo, inline: true },
+  ];
+
+  if (ciblePseudo) {
+    fields.push({ name: "Cible", value: ciblePseudo, inline: true });
+  }
+
+  if (description) {
+    fields.push({
+      name: "Description",
+      value: description.slice(0, 1024),
+      inline: false,
+    });
+  }
+
+  await sendDiscordChannelMessage(DISCORD_PROPOSITIONS_CHANNEL_ID, {
+    content: "<@&1478966492388397118>",
+    embeds: [
+      {
+        title: `📋 Nouvelle Proposition : ${titre.slice(0, 200)}`,
+        color,
+        fields,
+        footer: { text: "Votez sur le site du Conseil de Tokyo" },
+        timestamp: new Date().toISOString(),
+      },
+    ],
+    components: [
+      {
+        type: 1,
+        components: [
+          {
+            type: 2,
+            style: 5,
+            label: "📋 Voir les propositions",
+            url: propUrl,
+          },
+        ],
+      },
+    ],
+  });
+}
+
 /** Get all active propositions */
 export async function getPropositions(): Promise<Proposition[]> {
   const admin = await createAdminClient();
@@ -642,6 +719,10 @@ export async function creerProposition(
   if (error) return { success: false, error: "Erreur lors de la création." };
 
   revalidatePath("/conseil");
+  // Notification Discord (non bloquant)
+  notifyPropositionDiscord(titre.trim(), description.trim() || null, "general", auth.userId).catch(
+    (err) => console.error("[conseil] Notification proposition Discord échouée:", err)
+  );
   return { success: true };
 }
 
@@ -670,9 +751,11 @@ export async function creerPropositionDerank(
   if (!cible) return { success: false, error: "Utilisateur cible introuvable." };
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const ciblePseudo = (cible as any).pseudo as string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { error } = await (admin.from("conseil_propositions") as any).insert({
     type: "derank",
-    titre: `Déclassement de ${(cible as any).pseudo}`,
+    titre: `Déclassement de ${ciblePseudo}`,
     description: description.trim() || null,
     propose_par: auth.userId,
     statut: "en_cours",
@@ -683,6 +766,14 @@ export async function creerPropositionDerank(
   if (error) return { success: false, error: "Erreur lors de la création." };
 
   revalidatePath("/conseil");
+  // Notification Discord (non bloquant)
+  notifyPropositionDiscord(
+    `Déclassement de ${ciblePseudo}`,
+    description.trim() || null,
+    "derank",
+    auth.userId,
+    ciblePseudo
+  ).catch((err) => console.error("[conseil] Notification déclassement Discord échouée:", err));
   return { success: true };
 }
 

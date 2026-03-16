@@ -67,6 +67,38 @@ export type StatutProposition = "en_cours" | "validee" | "refusee" | "executee" 
 export type TypeVoteProposition = "pour" | "contre" | "neutre";
 export type TypeProposition = "general" | "derank";
 export type RoleDivision = "membre" | "superviseur";
+export type RoleAgence = "fondateur" | "membre";
+
+export interface Agence {
+  id: string;
+  nom: string;
+  description: string | null;
+  url_logo: string | null;
+  url_banniere: string | null;
+  fondateur_id: string;
+  site_id: string | null; // null = inter-école
+  est_inter_ecole: boolean;
+  discord_role_id: string | null;
+  cree_le: string;
+  mis_a_jour_le: string;
+}
+
+export interface MembreAgence {
+  id: string;
+  agence_id: string;
+  utilisateur_id: string;
+  role_agence: RoleAgence;
+  cree_le: string;
+}
+
+export interface StagiaireAgence {
+  id: string;
+  agence_id: string;
+  utilisateur_id: string;
+  parrain_id: string;
+  debut: string;
+  fin: string | null;
+}
 
 // ─── Helper type : division d'un utilisateur (retourné par la table de jonction) ──
 export type UtilisateurDivision = {
@@ -766,6 +798,9 @@ export interface Database {
           synopsis: string | null;
           discord_message_id: string | null;
           statut: "active" | "terminee" | "annulee";
+          agence_id: string | null;
+          est_mission_agence: boolean;
+          delegation_escouade_id: string | null;
           cree_le: string;
           mis_a_jour_le: string;
         };
@@ -780,6 +815,9 @@ export interface Database {
           synopsis?: string | null;
           discord_message_id?: string | null;
           statut?: "active" | "terminee" | "annulee";
+          agence_id?: string | null;
+          est_mission_agence?: boolean;
+          delegation_escouade_id?: string | null;
         };
         Update: {
           id?: string;
@@ -792,6 +830,9 @@ export interface Database {
           synopsis?: string | null;
           discord_message_id?: string | null;
           statut?: "active" | "terminee" | "annulee";
+          agence_id?: string | null;
+          est_mission_agence?: boolean;
+          delegation_escouade_id?: string | null;
         };
         Relationships: [
           {
@@ -1115,6 +1156,140 @@ export interface Database {
           }
         ];
       };
+      // ─── Agences d'exorcistes ──────────────────────────────────────────
+      agences: {
+        Row: {
+          id: string;
+          nom: string;
+          description: string | null;
+          url_logo: string | null;
+          url_banniere: string | null;
+          fondateur_id: string;
+          site_id: string | null;
+          est_inter_ecole: boolean;
+          discord_role_id: string | null;
+          cree_le: string;
+          mis_a_jour_le: string;
+        };
+        Insert: {
+          id?: string;
+          nom: string;
+          description?: string | null;
+          url_logo?: string | null;
+          url_banniere?: string | null;
+          fondateur_id: string;
+          site_id?: string | null;
+          est_inter_ecole?: boolean;
+          discord_role_id?: string | null;
+        };
+        Update: {
+          id?: string;
+          nom?: string;
+          description?: string | null;
+          url_logo?: string | null;
+          url_banniere?: string | null;
+          fondateur_id?: string;
+          site_id?: string | null;
+          est_inter_ecole?: boolean;
+          discord_role_id?: string | null;
+          mis_a_jour_le?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "agences_fondateur_id_fkey";
+            columns: ["fondateur_id"];
+            isOneToOne: false;
+            referencedRelation: "utilisateurs";
+            referencedColumns: ["id"];
+          }
+        ];
+      };
+      membres_agence: {
+        Row: {
+          id: string;
+          agence_id: string;
+          utilisateur_id: string;
+          role_agence: RoleAgence;
+          cree_le: string;
+        };
+        Insert: {
+          id?: string;
+          agence_id: string;
+          utilisateur_id: string;
+          role_agence?: RoleAgence;
+        };
+        Update: {
+          id?: string;
+          agence_id?: string;
+          utilisateur_id?: string;
+          role_agence?: RoleAgence;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "membres_agence_agence_id_fkey";
+            columns: ["agence_id"];
+            isOneToOne: false;
+            referencedRelation: "agences";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "membres_agence_utilisateur_id_fkey";
+            columns: ["utilisateur_id"];
+            isOneToOne: true;
+            referencedRelation: "utilisateurs";
+            referencedColumns: ["id"];
+          }
+        ];
+      };
+      stagiaires_agence: {
+        Row: {
+          id: string;
+          agence_id: string;
+          utilisateur_id: string;
+          parrain_id: string;
+          debut: string;
+          fin: string | null;
+        };
+        Insert: {
+          id?: string;
+          agence_id: string;
+          utilisateur_id: string;
+          parrain_id: string;
+          debut?: string;
+          fin?: string | null;
+        };
+        Update: {
+          id?: string;
+          agence_id?: string;
+          utilisateur_id?: string;
+          parrain_id?: string;
+          debut?: string;
+          fin?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "stagiaires_agence_agence_id_fkey";
+            columns: ["agence_id"];
+            isOneToOne: false;
+            referencedRelation: "agences";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "stagiaires_agence_utilisateur_id_fkey";
+            columns: ["utilisateur_id"];
+            isOneToOne: false;
+            referencedRelation: "utilisateurs";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "stagiaires_agence_parrain_id_fkey";
+            columns: ["parrain_id"];
+            isOneToOne: false;
+            referencedRelation: "utilisateurs";
+            referencedColumns: ["id"];
+          }
+        ];
+      };
       // ─── App configuration key-value store ─────────────────────────────
       app_config: {
         Row: {
@@ -1168,6 +1343,7 @@ export interface Database {
       type_vote_proposition: TypeVoteProposition;
       type_proposition: TypeProposition;
       role_division: RoleDivision;
+      role_agence: RoleAgence;
     };
   };
 }

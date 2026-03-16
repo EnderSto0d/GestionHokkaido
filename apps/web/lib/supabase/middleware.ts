@@ -47,7 +47,8 @@ export async function updateSession(request: NextRequest) {
     request.nextUrl.pathname.startsWith("/classement") ||
     request.nextUrl.pathname.startsWith("/evaluation") ||
     request.nextUrl.pathname.startsWith("/info") ||
-    request.nextUrl.pathname.startsWith("/conseil");
+    request.nextUrl.pathname.startsWith("/conseil") ||
+    request.nextUrl.pathname.startsWith("/agences");
 
   if (isProtectedRoute && !user) {
     const redirectUrl = request.nextUrl.clone();

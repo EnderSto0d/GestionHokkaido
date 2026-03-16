@@ -3,6 +3,8 @@ import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
 import { AdminPanel } from "@/components/shared/admin-panel";
 import { isConseilMember } from "@/app/(dashboard)/conseil/conseil-actions";
+import { AgencesInterEcoleAdmin } from "@/components/shared/agences-inter-ecole-admin";
+import { getExoProPlusForAdmin } from "@/app/(dashboard)/agences/actions";
 
 // ─── Métadonnées ──────────────────────────────────────────────────────────────
 
@@ -79,6 +81,7 @@ export default async function AdministrationPage() {
   // Stratégie/Conseil users can view but not manage levels or see eval details
   const canManageLevels = isProfOrAdmin;
   const isDirector = utilisateur?.grade_role === "Directeur" || utilisateur?.grade_role === "Co-Directeur";
+  const isAdmin = utilisateur?.role === "admin";
 
   // ── 3. Récupérer tous les élèves ─────────────────────────────────────
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -112,6 +115,9 @@ export default async function AdministrationPage() {
     ...s,
     divisions: divisionsByUser.get(s.id) ?? [],
   }));
+
+  // ── 3c. ExoPro+ list for inter-school agency creation (admin only) ──
+  const exoProList = isAdmin ? await getExoProPlusForAdmin() : [];
 
   // ─────────────────────────────────────────────────────────────────────
   return (
@@ -184,6 +190,14 @@ export default async function AdministrationPage() {
 
         {/* ── Panneau d'administration interactif ─────────────────────── */}
         <AdminPanel students={studentsWithDivisions} canManageLevels={canManageLevels} canViewAll={isConseil || isProfOrAdmin} isDirector={isDirector} currentUserRole={utilisateur?.role ?? "eleve"} currentUserGradeRole={utilisateur?.grade_role ?? null} />
+
+        {/* ── Section Agences inter-école (admin seulement) ───────────── */}
+        {isAdmin && (
+          <div className="mt-10">
+            <div className="h-px bg-gradient-to-r from-violet-500/30 via-white/10 to-transparent mb-8" />
+            <AgencesInterEcoleAdmin exoProList={exoProList as Array<{ id: string; pseudo: string; grade_role: string | null; site_id: string | null }>} />
+          </div>
+        )}
       </div>
     </div>
   );

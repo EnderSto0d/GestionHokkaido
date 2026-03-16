@@ -29,6 +29,12 @@ const REALTIME_TABLES = [
   "missions",
   "participations_mission",
   "mission_logs",
+  "bureau_membres",
+  "bureau_elections",
+  "bureau_votes",
+  "agences",
+  "membres_agence",
+  "stagiaires_agence",
 ] as const;
 
 /** Délai de debounce (ms) pour éviter de multiples refresh rapprochés */

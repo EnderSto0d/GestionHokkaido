@@ -185,6 +185,22 @@ function IconBox() {
   );
 }
 
+function IconBriefcase() {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" className="w-5 h-5">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M20.25 14.15v4.25c0 1.094-.787 2.036-1.872 2.18-2.087.277-4.216.42-6.378.42s-4.291-.143-6.378-.42c-1.085-.144-1.872-1.086-1.872-2.18v-4.25m16.5 0a2.18 2.18 0 0 0 .75-1.661V8.706c0-1.081-.768-2.015-1.837-2.175a48.114 48.114 0 0 0-3.413-.387m4.5 8.006c-.194.165-.42.295-.673.38A23.978 23.978 0 0 1 12 15.75c-2.648 0-5.195-.429-7.577-1.22a2.016 2.016 0 0 1-.673-.38m0 0A2.18 2.18 0 0 1 3 12.489V8.706c0-1.081.768-2.015 1.837-2.175a48.111 48.111 0 0 1 3.413-.387m7.5 0V5.25A2.25 2.25 0 0 0 13.5 3h-3a2.25 2.25 0 0 0-2.25 2.25v.894m7.5 0a48.667 48.667 0 0 0-7.5 0M12 12.75h.008v.008H12v-.008Z" />
+    </svg>
+  );
+}
+
+function IconBuilding() {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-5 h-5">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 21h16.5M4.5 3h15M5.25 3v18m13.5-18v18M9 6.75h1.5m-1.5 3h1.5m-1.5 3h1.5m3-6H15m-1.5 3H15m-1.5 3H15M9 21v-3.375c0-.621.504-1.125 1.125-1.125h3.75c.621 0 1.125.504 1.125 1.125V21" />
+    </svg>
+  );
+}
+
 /* ═══════════════════════════════════════════════════════════════════════════ */
 /*  Helper Components                                                         */
 /* ═══════════════════════════════════════════════════════════════════════════ */
@@ -269,7 +285,7 @@ function buildPages(): WikiPage[] {
       category: "general",
       badge: "Tous",
       badgeColor: "bg-red-500/20 text-red-300",
-      keywords: ["profil", "personnage", "avatar", "pseudo", "fiche", "radar", "compétences", "sort", "spécialité", "art martial", "relique", "points personnels", "historique points"],
+      keywords: ["profil", "personnage", "avatar", "pseudo", "fiche", "radar", "compétences", "sort", "spécialité", "art martial", "relique", "points personnels", "historique points", "agence", "stage", "badge agence"],
       access: "all",
       content: () => (
         <>
@@ -284,6 +300,7 @@ function buildPages(): WikiPage[] {
             "Carte escouade : si vous êtes dans une escouade, elle s'affiche avec votre rôle (Chef / Membre) et les points.",
             "Invitations en attente : acceptez ou déclinez les invitations d'escouades directement depuis votre profil.",
             "Points personnels : votre total de points personnels est visible sur votre profil. Cliquez sur « Historique » pour consulter l'ensemble des points reçus (source, montant, attributeur, date) dans une fenêtre dédiée.",
+            "Agence & Stage : votre appartenance à une agence d'exorcistes ou votre stage actif apparaît sous forme de badge sur votre profil pendant toute la durée du stage ou de l'adhésion.",
           ]} />
           <p className="font-medium text-white/60">Modifier mon personnage :</p>
           <BulletList items={[
@@ -482,6 +499,59 @@ function buildPages(): WikiPage[] {
       ),
     },
     {
+      id: "bureau",
+      title: "Bureau Directorial",
+      icon: <IconBriefcase />,
+      category: "gameplay",
+      badge: "Tous",
+      badgeColor: "bg-emerald-500/20 text-emerald-300",
+      keywords: ["bureau", "directorial", "directeur", "nomination", "election", "populaire", "membres", "chef", "siège", "nommé", "élu"],
+      access: "all" as Access,
+      content: () => (
+        <div className="space-y-6">
+          <section>
+            <h2 className="text-lg font-semibold text-white mb-3">Qu&apos;est-ce que le Bureau Directorial&nbsp;?</h2>
+            <p className="text-white/60 text-sm leading-relaxed">
+              Le Bureau Directorial est un organe consultatif composé de <strong className="text-white">5 membres</strong>.
+              Il est placé sous la supervision du Directeur et du Co-Directeur, qui ne font pas partie du bureau
+              mais en sont les têtes tutélaires.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="text-lg font-semibold text-white mb-3">Composition des 5 sièges</h2>
+            <BulletList items={[
+              "4 sièges nommés : désignés directement par le Directeur.",
+              "1 siège élu : choisi par l'ensemble des membres de l'école via une élection populaire.",
+              "Un chef du bureau est désigné parmi les 5 membres par le Directeur.",
+            ]} />
+          </section>
+
+          <section>
+            <h2 className="text-lg font-semibold text-white mb-3">Changement de Directeur</h2>
+            <Tip>Lorsque le Directeur change, les 4 membres nommés perdent automatiquement leur siège. Le membre élu conserve sa place.</Tip>
+          </section>
+
+          <section>
+            <h2 className="text-lg font-semibold text-white mb-3">Élection populaire</h2>
+            <p className="text-white/60 text-sm leading-relaxed">
+              Lorsque le Directeur lance une élection pour le siège élu, tous les membres authentifiés peuvent voter
+              pour un candidat de leur choix. Chaque membre dispose d&apos;un seul vote. Le candidat avec le plus de
+              votes remporte le siège élu. Le Directeur peut clôturer l&apos;élection à tout moment.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="text-lg font-semibold text-white mb-3">Rôle Discord</h2>
+            <p className="text-white/60 text-sm leading-relaxed">
+              Les membres du bureau reçoivent automatiquement le rôle Discord du bureau lors de leur nomination
+              ou de leur élection. Ce rôle est retiré en cas de révocation ou de départ.
+            </p>
+          </section>
+        </div>
+      ),
+    },
+    {
       id: "missions",
       title: "Missions",
       icon: <IconSword />,
@@ -620,6 +690,71 @@ function buildPages(): WikiPage[] {
           <Tip>
             Chaque bouton nécessite une <strong className="text-white/70">double confirmation</strong> : le premier clic change le bouton en mode confirmation (couleur + nouveau libellé), le second clic exécute l&apos;action.
           </Tip>
+        </>
+      ),
+    },
+    {
+      id: "agences",
+      title: "Agences d'Exorcistes",
+      icon: <IconBuilding />,
+      category: "gameplay",
+      badge: "Tous",
+      badgeColor: "bg-emerald-500/20 text-emerald-300",
+      keywords: ["agence", "exorciste pro", "stagiaire", "terminal", "inter-école", "délégation", "mission agence", "fondateur", "rejoindre agence", "professionnel"],
+      access: "all",
+      content: () => (
+        <>
+          <p>
+            Les agences d&apos;exorcistes sont des structures professionnelles regroupant des <strong className="text-white/70">Exorcistes Pro et rangs supérieurs</strong>.
+            Contrairement aux escouades réservées aux élèves, les agences opèrent dans un cadre professionnel avec accès à des missions d&apos;envergure.
+          </p>
+
+          <p className="font-medium text-white/60">Types d&apos;agences :</p>
+          <div className="space-y-3">
+            <div className="rounded-xl bg-white/[0.03] ring-1 ring-white/[0.06] p-3.5 space-y-1.5">
+              <p className="text-xs font-semibold text-white/70">Agence d&apos;école</p>
+              <BulletList items={[
+                "Créée par un Exorciste Pro (ou grade supérieur) de l'école.",
+                "Les membres sont issus de la même école uniquement.",
+                "Liée à l'École de Tokyo ou de Hokkaido selon le site.",
+              ]} />
+            </div>
+            <div className="rounded-xl bg-white/[0.03] ring-1 ring-amber-500/[0.15] p-3.5 space-y-1.5">
+              <p className="text-xs font-semibold text-amber-300/80">✦ Agence inter-école</p>
+              <BulletList items={[
+                "Créée exclusivement par un Administrateur.",
+                "L'administrateur désigne un fondateur parmi les Exorcistes Pro.",
+                "Regroupe des membres de Tokyo ET de Hokkaido.",
+                "Identifiable par le badge doré « ✦ Inter-école » sur sa fiche.",
+              ]} />
+            </div>
+          </div>
+
+          <p className="font-medium text-white/60">Rejoindre une agence :</p>
+          <BulletList items={[
+            "Seuls les Exorcistes Pro et rangs supérieurs (Professeur, Professeur Principal, Co-Directeur, Directeur) peuvent rejoindre ou créer une agence.",
+            "Un membre ne peut appartenir qu'à une seule agence à la fois.",
+            "Le fondateur ne peut pas quitter l'agence sans transférer la direction.",
+            "Pour une agence d'école, vous devez appartenir à la même école que l'agence.",
+          ]} />
+
+          <p className="font-medium text-white/60">Missions d&apos;agence :</p>
+          <BulletList items={[
+            "Les agences peuvent accéder à des missions réservées aux professionnels.",
+            "Le fondateur ou le créateur de mission peut déléguer une mission à une escouade d'élèves.",
+            "La délégation est identifiée par un badge spécifique sur la fiche de la mission.",
+          ]} />
+
+          <p className="font-medium text-white/60">Système de stage :</p>
+          <Tip>
+            Seuls les étudiants en classe <strong className="text-white/70">Terminal</strong> peuvent effectuer un stage en agence.
+          </Tip>
+          <BulletList items={[
+            "Un membre Exorciste Pro de l'agence devient le parrain du stagiaire.",
+            "Un étudiant ne peut effectuer qu'un seul stage actif à la fois.",
+            "Le stage peut être clôturé par le parrain, le fondateur ou un administrateur.",
+            "Le stage apparaît comme un badge sur votre profil pendant toute sa durée.",
+          ]} />
         </>
       ),
     },
