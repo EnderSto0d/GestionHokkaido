@@ -29,8 +29,8 @@ export type ProfileActionResult =
 
 const SORTS_VALIDES: SortsInnes[] = [
   "Altération Absolue", "Animaux Fantastiques", "Boogie Woogie", "Bourrasque",
-  "Clonage", "Corbeau", "Givre", "Intervalle", "Jardin Floral", "Venin",
-  "Projection Occulte", "Rage Volcanique",
+  "Art Tellurique", "Clonage", "Corbeau", "Givre", "Jardin Floral", "Venin",
+  "Rage Volcanique",
 ];
 
 const SPECIALITES_VALIDES: Specialites[] = ["Assassin", "Combattant", "Support", "Tank"];

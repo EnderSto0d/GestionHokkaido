@@ -28,13 +28,12 @@ const SORTS_INNES: { value: SortsInnes; label: string }[] = [
   { value: "Animaux Fantastiques", label: "Animaux Fantastiques" },
   { value: "Boogie Woogie", label: "Boogie Woogie" },
   { value: "Bourrasque", label: "Bourrasque" },
+  { value: "Art Tellurique", label: "Art Tellurique" },
   { value: "Clonage", label: "Clonage" },
   { value: "Corbeau", label: "Corbeau" },
   { value: "Givre", label: "Givre" },
-  { value: "Intervalle", label: "Intervalle" },
   { value: "Jardin Floral", label: "Jardin Floral" },
   { value: "Venin", label: "Venin" },
-  { value: "Projection Occulte", label: "Projection Occulte" },
   { value: "Rage Volcanique", label: "Rage Volcanique" },
 ];
 

@@ -14,15 +14,14 @@ export type Json =
 export type SortsInnes =
   | "Altération Absolue"
   | "Animaux Fantastiques"
+  | "Art Tellurique"
   | "Boogie Woogie"
   | "Bourrasque"
   | "Clonage"
   | "Corbeau"
   | "Givre"
-  | "Intervalle"
   | "Jardin Floral"
   | "Venin"
-  | "Projection Occulte"
   | "Rage Volcanique";
 
 export type Specialites = "Assassin" | "Combattant" | "Support" | "Tank";

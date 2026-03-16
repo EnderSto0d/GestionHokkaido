@@ -889,8 +889,8 @@ function buildPages(): WikiPage[] {
           <div className="flex flex-wrap gap-1.5">
             {[
               "Altération Absolue", "Animaux Fantastiques", "Boogie Woogie", "Bourrasque",
-              "Clonage", "Corbeau", "Givre", "Intervalle",
-              "Jardin Floral", "Venin", "Projection Occulte", "Rage Volcanique",
+              "Art Tellurique", "Clonage", "Corbeau", "Givre",
+              "Jardin Floral", "Venin", "Rage Volcanique",
             ].map((s) => (
               <span key={s} className="px-2 py-0.5 rounded-md bg-red-500/[0.06] ring-1 ring-red-500/[0.1] text-xs text-red-300/60">
                 {s}

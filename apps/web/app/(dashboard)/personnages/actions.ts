@@ -29,13 +29,12 @@ const SORTS_VALIDES: SortsInnes[] = [
   "Animaux Fantastiques",
   "Boogie Woogie",
   "Bourrasque",
+  "Art Tellurique",
   "Clonage",
   "Corbeau",
   "Givre",
-  "Intervalle",
   "Jardin Floral",
   "Venin",
-  "Projection Occulte",
   "Rage Volcanique",
 ];
 
