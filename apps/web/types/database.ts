@@ -797,12 +797,14 @@ export interface Database {
           capacite: number | null;
           ping_cible: Json;
           points_recompense: number;
+          points_individuels: number;
           synopsis: string | null;
           discord_message_id: string | null;
           statut: "active" | "terminee" | "annulee";
           agence_id: string | null;
           est_mission_agence: boolean;
           delegation_escouade_id: string | null;
+          deleted_at: string | null;
           cree_le: string;
           mis_a_jour_le: string;
         };
@@ -814,12 +816,14 @@ export interface Database {
           capacite?: number | null;
           ping_cible?: Json;
           points_recompense?: number;
+          points_individuels?: number;
           synopsis?: string | null;
           discord_message_id?: string | null;
           statut?: "active" | "terminee" | "annulee";
           agence_id?: string | null;
           est_mission_agence?: boolean;
           delegation_escouade_id?: string | null;
+          deleted_at?: string | null;
         };
         Update: {
           id?: string;
@@ -829,12 +833,14 @@ export interface Database {
           capacite?: number | null;
           ping_cible?: Json;
           points_recompense?: number;
+          points_individuels?: number;
           synopsis?: string | null;
           discord_message_id?: string | null;
           statut?: "active" | "terminee" | "annulee";
           agence_id?: string | null;
           est_mission_agence?: boolean;
           delegation_escouade_id?: string | null;
+          deleted_at?: string | null;
         };
         Relationships: [
           {
