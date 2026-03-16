@@ -68,6 +68,8 @@ export type TypeVoteProposition = "pour" | "contre" | "neutre";
 export type TypeProposition = "general" | "derank";
 export type RoleDivision = "membre" | "superviseur";
 export type RoleAgence = "fondateur" | "membre";
+export type TypeSiegeBureau = "nomme" | "elu";
+export type StatutElectionBureau = "en_cours" | "terminee" | "annulee";
 
 export interface Agence {
   id: string;
@@ -1290,6 +1292,132 @@ export interface Database {
           }
         ];
       };
+      // ─── Bureau des élèves ─────────────────────────────────────────────
+      bureau_membres: {
+        Row: {
+          id: string;
+          utilisateur_id: string;
+          site_id: string;
+          type_siege: TypeSiegeBureau;
+          est_chef: boolean;
+          nomme_par: string | null;
+          nomme_le: string;
+        };
+        Insert: {
+          id?: string;
+          utilisateur_id: string;
+          site_id: string;
+          type_siege: TypeSiegeBureau;
+          est_chef?: boolean;
+          nomme_par?: string | null;
+          nomme_le?: string;
+        };
+        Update: {
+          id?: string;
+          utilisateur_id?: string;
+          site_id?: string;
+          type_siege?: TypeSiegeBureau;
+          est_chef?: boolean;
+          nomme_par?: string | null;
+          nomme_le?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "bureau_membres_utilisateur_id_fkey";
+            columns: ["utilisateur_id"];
+            isOneToOne: false;
+            referencedRelation: "utilisateurs";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "bureau_membres_nomme_par_fkey";
+            columns: ["nomme_par"];
+            isOneToOne: false;
+            referencedRelation: "utilisateurs";
+            referencedColumns: ["id"];
+          }
+        ];
+      };
+      bureau_elections: {
+        Row: {
+          id: string;
+          site_id: string;
+          statut: StatutElectionBureau;
+          debut: string;
+          fin: string | null;
+          elu_id: string | null;
+          cree_le: string;
+        };
+        Insert: {
+          id?: string;
+          site_id: string;
+          statut?: StatutElectionBureau;
+          debut?: string;
+          fin?: string | null;
+          elu_id?: string | null;
+        };
+        Update: {
+          id?: string;
+          site_id?: string;
+          statut?: StatutElectionBureau;
+          debut?: string;
+          fin?: string | null;
+          elu_id?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "bureau_elections_elu_id_fkey";
+            columns: ["elu_id"];
+            isOneToOne: false;
+            referencedRelation: "utilisateurs";
+            referencedColumns: ["id"];
+          }
+        ];
+      };
+      bureau_votes: {
+        Row: {
+          id: string;
+          election_id: string;
+          votant_id: string;
+          candidat_id: string;
+          cree_le: string;
+        };
+        Insert: {
+          id?: string;
+          election_id: string;
+          votant_id: string;
+          candidat_id: string;
+        };
+        Update: {
+          id?: string;
+          election_id?: string;
+          votant_id?: string;
+          candidat_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "bureau_votes_election_id_fkey";
+            columns: ["election_id"];
+            isOneToOne: false;
+            referencedRelation: "bureau_elections";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "bureau_votes_votant_id_fkey";
+            columns: ["votant_id"];
+            isOneToOne: false;
+            referencedRelation: "utilisateurs";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "bureau_votes_candidat_id_fkey";
+            columns: ["candidat_id"];
+            isOneToOne: false;
+            referencedRelation: "utilisateurs";
+            referencedColumns: ["id"];
+          }
+        ];
+      };
       // ─── App configuration key-value store ─────────────────────────────
       app_config: {
         Row: {
@@ -1344,6 +1472,8 @@ export interface Database {
       type_proposition: TypeProposition;
       role_division: RoleDivision;
       role_agence: RoleAgence;
+      type_siege_bureau: TypeSiegeBureau;
+      statut_election_bureau: StatutElectionBureau;
     };
   };
 }
