@@ -65,8 +65,8 @@ export default async function AgenceDetailPage({
   const isExoProPlus = EXO_PRO_PLUS_ROLES.includes(utilisateur?.grade_role ?? "");
   const isAdmin = utilisateur?.role === "admin";
 
-  const monMembership = membres.find(
-    (m: { utilisateur_id: string; role_agence: string }) => m.utilisateur_id === user.id
+  const monMembership = (membres as Array<{ utilisateur_id: string; role_agence: string }>).find(
+    (m) => m.utilisateur_id === user.id
   );
 
   const estMembre = !!monMembership;
