@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/server";
 import { fetchDiscordGuildMemberByBot, addDiscordRoleToMember, removeDiscordRoleFromMember } from "@/lib/discord/guild-member";
 import { resolveDiscordRoles, getGradeSecondaireFromDiscordRoles, GRADE_SECONDAIRE_TO_ROLE_ID, ALL_GRADES_SECONDAIRES } from "@/lib/discord/role-mappings";
+import { syncAllEscouadeDiscordRolesInternal } from "@/app/(dashboard)/administration/admin-actions";
 
 /**
  * GET /api/cron/sync-discord
@@ -128,10 +129,24 @@ export async function GET(req: NextRequest) {
 
   console.log(`[cron/sync-discord] Terminé: ${synced} sync, ${failed} erreurs sur ${utilisateurs.length} utilisateurs.`);
 
+  // Synchroniser les rôles Discord de toutes les escouades (rétroactif)
+  let escouadeRolesSynced = 0;
+  let escouadeRolesErrors = 0;
+  try {
+    const result = await syncAllEscouadeDiscordRolesInternal(admin);
+    escouadeRolesSynced = result.count;
+    escouadeRolesErrors = result.errors;
+    console.log(`[cron/sync-discord] Rôles escouades synchronisés: ${result.count} assignations, ${result.errors} erreurs.`);
+  } catch (err) {
+    console.error("[cron/sync-discord] Erreur sync rôles escouades:", err);
+  }
+
   return NextResponse.json({
     total: utilisateurs.length,
     synced,
     failed,
     errors: errors.slice(0, 10), // Limiter la taille de la réponse
+    escouade_roles_synced: escouadeRolesSynced,
+    escouade_roles_errors: escouadeRolesErrors,
   });
 }

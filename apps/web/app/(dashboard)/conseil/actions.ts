@@ -194,12 +194,54 @@ export async function getConseilMembres(): Promise<ConseilMembre[]> {
 
 // ─── Notifications Discord ────────────────────────────────────────────────────
 
-type EscouadeDiscord = {
+type EscouadeWithTotalPoints = {
   id: string;
   nom: string;
   discord_role_id: string | null;
   points: number;
+  nb_membres: number;
+  points_totaux: number;
 };
+
+/**
+ * Returns ALL escouades sorted by total points DESC (escouade.points + SUM of members' points_personnels).
+ * Filters to only escouades that have a discord_role_id.
+ */
+async function getAllEscouadesSortedByTotalPoints(
+  adminClient: Awaited<ReturnType<typeof createAdminClient>>
+): Promise<EscouadeWithTotalPoints[]> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data } = await (adminClient.from("escouades") as any)
+    .select("id, nom, discord_role_id, points, membres_escouade(utilisateurs(points_personnels))")
+    .not("discord_role_id", "is", null);
+
+  return ((data ?? []) as any[])
+    .map((e: any) => ({
+      id: e.id as string,
+      nom: e.nom as string,
+      discord_role_id: e.discord_role_id as string | null,
+      points: e.points as number,
+      nb_membres: (e.membres_escouade?.length ?? 0) as number,
+      points_totaux:
+        (e.points ?? 0) +
+        ((e.membres_escouade ?? []) as any[]).reduce(
+          (acc: number, m: any) => acc + (m.utilisateurs?.points_personnels ?? 0),
+          0
+        ),
+    }))
+    .sort((a: any, b: any) => b.points_totaux - a.points_totaux);
+}
+
+/**
+ * Returns the top 3 escouades by total points (escouade.points + members' points_personnels).
+ * Only includes escouades with >= 3 members.
+ */
+async function getTop3EscouadesByTotalPoints(
+  adminClient: Awaited<ReturnType<typeof createAdminClient>>
+): Promise<EscouadeWithTotalPoints[]> {
+  const all = await getAllEscouadesSortedByTotalPoints(adminClient);
+  return all.filter((e) => e.nb_membres >= 3).slice(0, 3);
+}
 
 /** Envoie un embed dans le salon d'élection et pinge les top 3 escouades si nécessaire. */
 async function notifyElectionDiscord(
@@ -219,13 +261,7 @@ async function notifyElectionDiscord(
 
   if (type === "elu_eleve") {
     const admin = await createAdminClient();
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data } = await (admin.from("escouades") as any)
-      .select("id, nom, discord_role_id, points")
-      .order("points", { ascending: false })
-      .limit(3);
-
-    const top3 = (data ?? []) as EscouadeDiscord[];
+    const top3 = await getTop3EscouadesByTotalPoints(admin);
     const pings = top3
       .filter((e) => e.discord_role_id)
       .map((e) => `<@&${e.discord_role_id}>`)
@@ -282,22 +318,24 @@ async function notifyElectionDiscord(
  */
 export async function syncTop3DiscussionChannel(): Promise<void> {
   const admin = await createAdminClient();
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: escouades } = await (admin.from("escouades") as any)
-    .select("id, discord_role_id, points")
-    .not("discord_role_id", "is", null)
-    .order("points", { ascending: false });
+  const allEscouades = await getAllEscouadesSortedByTotalPoints(admin);
 
-  if (!escouades || escouades.length === 0) return;
+  if (allEscouades.length === 0) return;
 
-  const typedEscouades = escouades as { id: string; discord_role_id: string; points: number }[];
-  const top3RoleIds = new Set(typedEscouades.slice(0, 3).map((e) => e.discord_role_id));
+  const top3RoleIds = new Set(
+    allEscouades
+      .filter((e) => e.nb_membres >= 3 && e.discord_role_id !== null)
+      .slice(0, 3)
+      .map((e) => e.discord_role_id!)
+  );
 
   // VIEW_CHANNEL (1024) | SEND_MESSAGES (2048) | READ_MESSAGE_HISTORY (65536) = 68608
   const ALLOW = "68608";
   const DENY = "0";
 
-  for (const escouade of typedEscouades) {
+  for (const escouade of allEscouades) {
+    if (!escouade.discord_role_id) continue; // Skip if no role ID
+
     if (top3RoleIds.has(escouade.discord_role_id)) {
       await setChannelRolePermission(
         DISCORD_TOP3_DISCUSSION_CHANNEL_ID,
@@ -354,11 +392,7 @@ export async function lancerElection(
 
   // Vérifier qu'il y a au minimum 3 escouades dans le top 3 (uniquement pour les élections escouade)
   if (type === "elu_eleve") {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: escouadesTop } = await (admin.from("escouades") as any)
-      .select("id")
-      .order("points", { ascending: false })
-      .limit(3);
+    const escouadesTop = await getTop3EscouadesByTotalPoints(admin);
 
     if (!escouadesTop || escouadesTop.length < MIN_ESCOUADES_TOP3) {
       return {
@@ -438,13 +472,8 @@ export async function peutVoterEleve(
   }
 
   // L'utilisateur doit être dans le top 3 des escouades
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: escouades } = await (admin.from("escouades") as any)
-    .select("id")
-    .order("points", { ascending: false })
-    .limit(3);
-
-  const top3Ids = (escouades ?? []).map((e: { id: string }) => e.id);
+  const top3 = await getTop3EscouadesByTotalPoints(admin);
+  const top3Ids = top3.map((e) => e.id);
 
   if (top3Ids.length === 0) {
     return { canVote: false, reason: "Aucune escouade dans le classement." };
@@ -501,13 +530,8 @@ export async function voterEleve(
   const admin = await createAdminClient();
 
   // Vérifier que le candidat est membre d'une des top 3 escouades
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: escouadesTop3 } = await (admin.from("escouades") as any)
-    .select("id")
-    .order("points", { ascending: false })
-    .limit(3);
-
-  const top3Ids = (escouadesTop3 ?? []).map((e: { id: string }) => e.id);
+  const top3 = await getTop3EscouadesByTotalPoints(admin);
+  const top3Ids = top3.map((e) => e.id);
 
   if (top3Ids.length > 0) {
     const { data: candidatMembership } = await admin
@@ -943,14 +967,9 @@ export async function getCandidatsPossibles(): Promise<
     (m: any) => m.utilisateur_id as string
   );
 
-  // Récupérer le top 3 des escouades par points
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: escouadesTop3 } = await (admin.from("escouades") as any)
-    .select("id")
-    .order("points", { ascending: false })
-    .limit(3);
-
-  const top3Ids = (escouadesTop3 ?? []).map((e: { id: string }) => e.id);
+  // Récupérer le top 3 des escouades par points totaux
+  const top3Escouades = await getTop3EscouadesByTotalPoints(admin);
+  const top3Ids = top3Escouades.map((e) => e.id);
 
   if (top3Ids.length === 0) return [];
 

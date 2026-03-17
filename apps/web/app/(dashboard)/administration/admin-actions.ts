@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient, createAdminClient } from "@/lib/supabase/server";
-import { fetchDiscordGuildMemberByBot } from "@/lib/discord/guild-member";
+import { fetchDiscordGuildMemberByBot, addDiscordRoleToMember } from "@/lib/discord/guild-member";
 import { getGradeSecondaireFromDiscordRoles } from "@/lib/discord/role-mappings";
 import type { GradeRole, GradeSecondaire } from "@/types/database";
 
@@ -762,6 +762,101 @@ export async function getPointsHistoriqueAdmin(
     cree_le: h.cree_le,
     attribue_par_pseudo: h.attribue_par ? (pseudoMap[h.attribue_par] ?? null) : null,
   }));
+}
+
+// ─── Synchroniser les rôles Discord de toutes les escouades (retroactive) ─────
+
+/**
+ * Ajoute le rôle Discord de chaque escouade à tous ses membres.
+ * Corrige les membres existants qui n'ont pas reçu le rôle à l'époque.
+ * Accessible aux professeurs et admins via l'interface d'administration.
+ */
+export async function syncAllEscouadeDiscordRoles(): Promise<
+  AdminActionResult & { count?: number }
+> {
+  const auth = await verifyProfOrAdmin();
+  if ("error" in auth) return { success: false, error: auth.error };
+
+  const admin = await createAdminClient();
+
+  // Récupérer toutes les escouades avec discord_role_id et les discord_id de leurs membres
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: escouades, error: fetchErr } = await (admin.from("escouades") as any)
+    .select("id, discord_role_id, membres_escouade(utilisateurs(id, discord_id))")
+    .not("discord_role_id", "is", null);
+
+  if (fetchErr) {
+    return { success: false, error: "Erreur lors de la récupération des escouades." };
+  }
+
+  if (!escouades || (escouades as any[]).length === 0) {
+    return { success: true, count: 0 };
+  }
+
+  let count = 0;
+
+  for (const escouade of escouades as any[]) {
+    const roleId = escouade.discord_role_id as string;
+    const membres = (escouade.membres_escouade ?? []) as any[];
+
+    for (const membre of membres) {
+      const discordId = membre.utilisateurs?.discord_id as string | null;
+      if (!discordId) continue;
+
+      try {
+        await addDiscordRoleToMember(discordId, roleId);
+        count++;
+        // Rate limiting Discord API : 100ms entre chaque requête
+        await new Promise((r) => setTimeout(r, 100));
+      } catch (err) {
+        console.error(`[sync-escouade-roles] Erreur pour discord_id=${discordId}, roleId=${roleId}:`, err);
+      }
+    }
+  }
+
+  revalidatePath("/administration");
+  return { success: true, count };
+}
+
+/**
+ * Version interne sans vérification d'auth — pour usage depuis le cron.
+ * Prend un adminClient déjà créé pour éviter de le recréer.
+ */
+export async function syncAllEscouadeDiscordRolesInternal(
+  adminClient: Awaited<ReturnType<typeof createAdminClient>>
+): Promise<{ count: number; errors: number }> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: escouades, error: fetchErr } = await (adminClient.from("escouades") as any)
+    .select("id, discord_role_id, membres_escouade(utilisateurs(id, discord_id))")
+    .not("discord_role_id", "is", null);
+
+  if (fetchErr || !escouades || (escouades as any[]).length === 0) {
+    return { count: 0, errors: fetchErr ? 1 : 0 };
+  }
+
+  let count = 0;
+  let errors = 0;
+
+  for (const escouade of escouades as any[]) {
+    const roleId = escouade.discord_role_id as string;
+    const membres = (escouade.membres_escouade ?? []) as any[];
+
+    for (const membre of membres) {
+      const discordId = membre.utilisateurs?.discord_id as string | null;
+      if (!discordId) continue;
+
+      try {
+        await addDiscordRoleToMember(discordId, roleId);
+        count++;
+        await new Promise((r) => setTimeout(r, 100));
+      } catch (err) {
+        console.error(`[sync-escouade-roles] Erreur pour discord_id=${discordId}, roleId=${roleId}:`, err);
+        errors++;
+      }
+    }
+  }
+
+  return { count, errors };
 }
 
 // ─── Annuler une entrée de points personnels (admin/directeur/prof principal) ─

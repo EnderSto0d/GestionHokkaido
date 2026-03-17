@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient, createAdminClient } from "@/lib/supabase/server";
+import { removeDiscordRoleFromMember } from "@/lib/discord/guild-member";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 

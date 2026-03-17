@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient, createAdminClient } from "@/lib/supabase/server";
+import { addDiscordRoleToMember } from "@/lib/discord/guild-member";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -234,6 +235,34 @@ export async function accepterInvitation(
       success: false,
       error: "Erreur lors de l'ajout à l'escouade.",
     };
+  }
+
+  // ── Attribuer le rôle Discord de l'escouade au nouveau membre ──
+  try {
+    const { data: _escouadeDiscord } = await adminClient
+      .from("escouades")
+      .select("discord_role_id")
+      .eq("id", invitation.escouade_id)
+      .single();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const discordRoleId = (_escouadeDiscord as any)?.discord_role_id;
+
+    if (discordRoleId) {
+      const { data: _utilisateurDiscord } = await adminClient
+        .from("utilisateurs")
+        .select("discord_id")
+        .eq("id", user.id)
+        .single();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const discordUserId = (_utilisateurDiscord as any)?.discord_id;
+
+      if (discordUserId) {
+        await addDiscordRoleToMember(discordUserId, discordRoleId);
+      }
+    }
+  } catch (err) {
+    // Ne pas bloquer l'acceptation si l'attribution du rôle Discord échoue
+    console.error("[invitations] Erreur attribution rôle Discord escouade:", err);
   }
 
   revalidatePath(`/escouades/${invitation.escouade_id}`);
