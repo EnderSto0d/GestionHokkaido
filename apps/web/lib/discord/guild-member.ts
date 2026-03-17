@@ -119,6 +119,101 @@ export async function addDiscordRoleToMember(
 }
 
 /**
+ * Envoie un message (texte + embed + composants) dans un salon Discord.
+ * Retourne true si l'envoi a réussi, false sinon.
+ */
+export async function sendDiscordChannelMessage(
+  channelId: string,
+  payload: Record<string, unknown>
+): Promise<boolean> {
+  const botToken = process.env.DISCORD_BOT_TOKEN;
+  if (!botToken) {
+    console.warn("[discord] DISCORD_BOT_TOKEN non configuré, message ignoré.");
+    return false;
+  }
+  try {
+    const res = await fetch(
+      `https://discord.com/api/v10/channels/${channelId}/messages`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bot ${botToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      }
+    );
+    if (!res.ok) {
+      const text = await res.text();
+      console.error(
+        `[discord] sendChannelMessage (channel ${channelId}) failed (${res.status}): ${text}`
+      );
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.error("[discord] sendChannelMessage error:", err);
+    return false;
+  }
+}
+
+/**
+ * Ajoute ou met à jour un permission overwrite de rôle dans un salon Discord.
+ * allow / deny : chaînes de bits de permissions Discord (ex: "68608").
+ * type 0 = role overwrite.
+ */
+export async function setChannelRolePermission(
+  channelId: string,
+  roleId: string,
+  allow: string,
+  deny: string
+): Promise<boolean> {
+  const botToken = process.env.DISCORD_BOT_TOKEN;
+  if (!botToken) return false;
+  try {
+    const res = await fetch(
+      `https://discord.com/api/v10/channels/${channelId}/permissions/${roleId}`,
+      {
+        method: "PUT",
+        headers: {
+          Authorization: `Bot ${botToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ type: 0, allow, deny }),
+      }
+    );
+    return res.ok || res.status === 204;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Supprime le permission overwrite d'un rôle dans un salon Discord.
+ */
+export async function deleteChannelRolePermission(
+  channelId: string,
+  roleId: string
+): Promise<boolean> {
+  const botToken = process.env.DISCORD_BOT_TOKEN;
+  if (!botToken) return false;
+  try {
+    const res = await fetch(
+      `https://discord.com/api/v10/channels/${channelId}/permissions/${roleId}`,
+      {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bot ${botToken}`,
+        },
+      }
+    );
+    return res.ok || res.status === 204;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Retire un rôle Discord d'un membre via le bot token.
  * Utilise DELETE /guilds/{guildId}/members/{userId}/roles/{roleId}
  */

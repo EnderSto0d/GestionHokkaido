@@ -1424,6 +1424,50 @@ export interface Database {
           }
         ];
       };
+      votes_conseil_bloques: {
+        Row: {
+          id: string;
+          election_id: string;
+          votant_id: string;
+          candidat_id: string;
+          cree_le: string;
+        };
+        Insert: {
+          id?: string;
+          election_id: string;
+          votant_id: string;
+          candidat_id: string;
+        };
+        Update: {
+          id?: string;
+          election_id?: string;
+          votant_id?: string;
+          candidat_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "votes_conseil_bloques_election_id_fkey";
+            columns: ["election_id"];
+            isOneToOne: false;
+            referencedRelation: "elections_conseil";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "votes_conseil_bloques_votant_id_fkey";
+            columns: ["votant_id"];
+            isOneToOne: false;
+            referencedRelation: "utilisateurs";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "votes_conseil_bloques_candidat_id_fkey";
+            columns: ["candidat_id"];
+            isOneToOne: false;
+            referencedRelation: "utilisateurs";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       // ─── App configuration key-value store ─────────────────────────────
       app_config: {
         Row: {

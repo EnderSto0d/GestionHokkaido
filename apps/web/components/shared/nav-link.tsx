@@ -46,7 +46,7 @@ export function NavLink({ href, children, mobile = false, adminOnly = false, bad
         isActive
           ? adminOnly
             ? "bg-amber-500/10 text-amber-400 ring-1 ring-amber-500/20"
-          ? "bg-red-500/10 text-red-300 ring-1 ring-red-500/20"
+            : "bg-red-500/10 text-red-300 ring-1 ring-red-500/20"
           : adminOnly
           ? "text-amber-400/50 hover:text-amber-400 hover:bg-amber-500/5"
           : "text-white/40 hover:text-white/70 hover:bg-white/5",
