@@ -9,6 +9,7 @@ import {
   setAllSansGradeEnSeconde,
   syncGradesFromDiscord,
   syncAllEscouadeDiscordRoles,
+  type EscouadeSyncError,
 } from "@/app/(dashboard)/administration/admin-actions";
 import type { GradeSecondaire } from "@/types/database";
 
@@ -113,7 +114,8 @@ export function AdminPanel({
   const [feedback, setFeedback] = useState<{ type: "success" | "error"; msg: string } | null>(null);
   const [isPending, startTransition] = useTransition();
   const [isSyncingEscouades, setIsSyncingEscouades] = useState(false);
-  const [escouadesSyncResult, setEscouadesSyncResult] = useState<{ count: number; errors: number; skipped: number } | null>(null);
+  const [escouadesSyncResult, setEscouadesSyncResult] = useState<{ count: number; errors: number; skipped: number; errorDetails: EscouadeSyncError[] } | null>(null);
+  const [showSyncErrors, setShowSyncErrors] = useState(false);
 
   // ── Local mutable state for optimistic updates ──────────────────────
   const [localStudents, setLocalStudents] = useState(students);
@@ -243,7 +245,8 @@ export function AdminPanel({
       try {
         const result = await syncAllEscouadeDiscordRoles();
         if (result.success) {
-          setEscouadesSyncResult({ count: result.count ?? 0, errors: result.errors ?? 0, skipped: result.skipped ?? 0 });
+          setEscouadesSyncResult({ count: result.count ?? 0, errors: result.errors ?? 0, skipped: result.skipped ?? 0, errorDetails: result.errorDetails ?? [] });
+          setShowSyncErrors(false);
         } else {
           showFeedback("error", result.error ?? "Erreur lors de la synchronisation.");
         }
@@ -520,11 +523,40 @@ export function AdminPanel({
                   )}
                 </button>
                 {escouadesSyncResult && (
-                  <p className="text-[11px] text-emerald-400/80">
-                    ✓ {escouadesSyncResult.count} assigné(s)
-                    {escouadesSyncResult.skipped > 0 && ` · ${escouadesSyncResult.skipped} sans discord_id`}
-                    {escouadesSyncResult.errors > 0 && <span className="text-red-400/80"> · {escouadesSyncResult.errors} erreur(s)</span>}
-                  </p>
+                  <div className="flex flex-col gap-1">
+                    <p className="text-[11px] text-emerald-400/80">
+                      ✓ {escouadesSyncResult.count} assigné(s)
+                      {escouadesSyncResult.skipped > 0 && ` · ${escouadesSyncResult.skipped} sans discord_id`}
+                      {escouadesSyncResult.errors > 0 && (
+                        <>
+                          <span className="text-red-400/80"> · {escouadesSyncResult.errors} erreur(s)</span>
+                          {" "}
+                          <button
+                            onClick={() => setShowSyncErrors((v) => !v)}
+                            className="underline text-red-400/60 hover:text-red-400 transition-colors"
+                          >
+                            {showSyncErrors ? "Masquer" : "Voir détails"}
+                          </button>
+                        </>
+                      )}
+                    </p>
+                    {showSyncErrors && escouadesSyncResult.errorDetails.length > 0 && (
+                      <div className="mt-1 rounded-lg bg-red-500/5 ring-1 ring-red-500/20 p-2 max-h-48 overflow-y-auto">
+                        <p className="text-[10px] text-red-400/60 uppercase tracking-widest mb-1.5 font-medium">Détail des erreurs</p>
+                        <div className="flex flex-col gap-1">
+                          {escouadesSyncResult.errorDetails.map((e, i) => (
+                            <div key={i} className="text-[11px] text-red-300/80 leading-tight">
+                              <span className="font-medium text-white/70">{e.pseudo}</span>
+                              <span className="text-white/30"> · </span>
+                              <span className="text-violet-300/70">{e.escouadeNom}</span>
+                              <span className="text-white/30"> · </span>
+                              <span className="text-red-400/70">{e.reason}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 )}
               </div>
             )}

@@ -772,18 +772,19 @@ export async function getPointsHistoriqueAdmin(
  * Corrige les membres existants qui n'ont pas reçu le rôle à l'époque.
  * Accessible aux professeurs et admins via l'interface d'administration.
  */
+export type EscouadeSyncError = { discordId: string; pseudo: string; escouadeNom: string; reason: string };
+
 export async function syncAllEscouadeDiscordRoles(): Promise<
-  AdminActionResult & { count?: number; errors?: number; skipped?: number }
+  AdminActionResult & { count?: number; errors?: number; skipped?: number; errorDetails?: EscouadeSyncError[] }
 > {
   const auth = await verifyProfOrAdmin();
   if ("error" in auth) return { success: false, error: auth.error };
 
   const admin = await createAdminClient();
 
-  // Récupérer uniquement les escouades du site courant avec discord_role_id et les discord_id de leurs membres
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: escouades, error: fetchErr } = await (admin.from("escouades") as any)
-    .select("id, discord_role_id, membres_escouade(utilisateurs(id, discord_id))")
+    .select("id, nom, discord_role_id, membres_escouade(utilisateurs(id, discord_id, pseudo))")
     .not("discord_role_id", "is", null);
 
   if (fetchErr) {
@@ -791,19 +792,22 @@ export async function syncAllEscouadeDiscordRoles(): Promise<
   }
 
   if (!escouades || (escouades as any[]).length === 0) {
-    return { success: true, count: 0, errors: 0, skipped: 0 };
+    return { success: true, count: 0, errors: 0, skipped: 0, errorDetails: [] };
   }
 
   let count = 0;
   let errors = 0;
   let skipped = 0;
+  const errorDetails: EscouadeSyncError[] = [];
 
   for (const escouade of escouades as any[]) {
     const roleId = escouade.discord_role_id as string;
+    const escouadeNom = (escouade.nom as string) ?? "?";
     const membres = (escouade.membres_escouade ?? []) as any[];
 
     for (const membre of membres) {
       const discordId = membre.utilisateurs?.discord_id as string | null;
+      const pseudo = (membre.utilisateurs?.pseudo as string) ?? discordId ?? "?";
       if (!discordId) {
         skipped++;
         continue;
@@ -815,14 +819,16 @@ export async function syncAllEscouadeDiscordRoles(): Promise<
         // Rate limiting Discord API : 100ms entre chaque requête
         await new Promise((r) => setTimeout(r, 100));
       } catch (err) {
-        console.error(`[sync-escouade-roles] Erreur pour discord_id=${discordId}, roleId=${roleId}:`, err);
+        const reason = err instanceof Error ? err.message : String(err);
+        console.error(`[sync-escouade-roles] Erreur pour discord_id=${discordId} (${pseudo}), escouade=${escouadeNom}:`, reason);
+        errorDetails.push({ discordId, pseudo, escouadeNom, reason });
         errors++;
       }
     }
   }
 
   revalidatePath("/administration");
-  return { success: true, count, errors, skipped };
+  return { success: true, count, errors, skipped, errorDetails };
 }
 
 /**
