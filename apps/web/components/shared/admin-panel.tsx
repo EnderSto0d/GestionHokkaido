@@ -8,6 +8,7 @@ import {
   retrograderEleve,
   setAllSansGradeEnSeconde,
   syncGradesFromDiscord,
+  syncAllEscouadeDiscordRoles,
 } from "@/app/(dashboard)/administration/admin-actions";
 import type { GradeSecondaire } from "@/types/database";
 
@@ -111,6 +112,8 @@ export function AdminPanel({
   const [sortAsc, setSortAsc] = useState(true);
   const [feedback, setFeedback] = useState<{ type: "success" | "error"; msg: string } | null>(null);
   const [isPending, startTransition] = useTransition();
+  const [isSyncingEscouades, setIsSyncingEscouades] = useState(false);
+  const [escouadesSyncResult, setEscouadesSyncResult] = useState<{ count: number; errors: number } | null>(null);
 
   // ── Local mutable state for optimistic updates ──────────────────────
   const [localStudents, setLocalStudents] = useState(students);
@@ -226,6 +229,28 @@ export function AdminPanel({
         showFeedback("success", parts.length > 0 ? `Sync terminée : ${parts.join(", ")}.` : "Tous les grades sont déjà à jour.");
         // Refresh local state
         window.location.reload();
+      }
+    });
+  }
+
+  // ── Bulk: sync escouade Discord roles ─────────────────────────────
+
+  async function handleSyncEscouadeRoles() {
+    if (!confirm("Synchroniser les rôles Discord de toutes les escouades ? Cela assignera le rôle Discord de chaque escouade à tous ses membres.")) return;
+    setIsSyncingEscouades(true);
+    setEscouadesSyncResult(null);
+    startTransition(async () => {
+      try {
+        const result = await syncAllEscouadeDiscordRoles();
+        if (result.success) {
+          setEscouadesSyncResult({ count: result.count ?? 0, errors: 0 });
+        } else {
+          showFeedback("error", result.error ?? "Erreur lors de la synchronisation.");
+        }
+      } catch {
+        showFeedback("error", "Erreur inattendue lors de la synchronisation.");
+      } finally {
+        setIsSyncingEscouades(false);
       }
     });
   }
@@ -472,6 +497,34 @@ export function AdminPanel({
                 )}
                 {isPending ? "Synchronisation…" : "Sync grades Discord"}
               </button>
+            )}
+            {canManageLevels && (
+              <div className="flex flex-col gap-1">
+                <button
+                  onClick={handleSyncEscouadeRoles}
+                  disabled={isSyncingEscouades || isPending}
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium bg-violet-500/10 text-violet-300 ring-1 ring-violet-500/20 hover:bg-violet-500/20 transition-all disabled:opacity-50 whitespace-nowrap"
+                >
+                  {isSyncingEscouades ? (
+                    <>
+                      <span className="w-3 h-3 border-2 border-violet-400/30 border-t-violet-400 rounded-full animate-spin" />
+                      Synchronisation...
+                    </>
+                  ) : (
+                    <>
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" className="w-3.5 h-3.5">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 3c-4.5 1.8-8 3-8 9 0 5.4 4.8 9 8 9s8-3.6 8-9c0-6-3.5-7.2-8-9Z" />
+                      </svg>
+                      Sync rôles escouades Discord
+                    </>
+                  )}
+                </button>
+                {escouadesSyncResult && (
+                  <p className="text-[11px] text-emerald-400/80">
+                    ✓ {escouadesSyncResult.count} assignation(s) · {escouadesSyncResult.errors} erreur(s)
+                  </p>
+                )}
+              </div>
             )}
           </div>
 
