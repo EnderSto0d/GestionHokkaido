@@ -23,7 +23,12 @@ type AgenceRow = {
 
 type MonAgence = {
   role_agence: string;
-  agences: unknown;
+  agences: {
+    id: string;
+    nom: string;
+    url_logo: string | null;
+    est_inter_ecole: boolean;
+  } | null;
 } | null;
 
 type MonStage = {
