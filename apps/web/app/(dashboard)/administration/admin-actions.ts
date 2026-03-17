@@ -784,8 +784,7 @@ export async function syncAllEscouadeDiscordRoles(): Promise<
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: escouades, error: fetchErr } = await (admin.from("escouades") as any)
     .select("id, discord_role_id, membres_escouade(utilisateurs(id, discord_id))")
-    .not("discord_role_id", "is", null)
-    .eq("site_id", SITE_ID);
+    .not("discord_role_id", "is", null);
 
   if (fetchErr) {
     return { success: false, error: "Erreur lors de la récupération des escouades." };
@@ -836,8 +835,7 @@ export async function syncAllEscouadeDiscordRolesInternal(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: escouades, error: fetchErr } = await (adminClient.from("escouades") as any)
     .select("id, discord_role_id, membres_escouade(utilisateurs(id, discord_id))")
-    .not("discord_role_id", "is", null)
-    .eq("site_id", SITE_ID);
+    .not("discord_role_id", "is", null);
 
   if (fetchErr || !escouades || (escouades as any[]).length === 0) {
     return { count: 0, errors: fetchErr ? 1 : 0 };
