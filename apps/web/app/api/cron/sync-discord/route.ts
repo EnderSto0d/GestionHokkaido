@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/server";
 import { fetchDiscordGuildMemberByBot, addDiscordRoleToMember, removeDiscordRoleFromMember } from "@/lib/discord/guild-member";
+import { sleep, DISCORD_BATCH_DELAY_MS } from "@/lib/discord/rate-limit";
 import { resolveDiscordRoles, getGradeSecondaireFromDiscordRoles, GRADE_SECONDAIRE_TO_ROLE_ID, ALL_GRADES_SECONDAIRES } from "@/lib/discord/role-mappings";
-import { syncAllEscouadeDiscordRolesInternal } from "@/app/(dashboard)/administration/admin-actions";
 import { syncTop3DiscussionChannel } from "@/app/(dashboard)/conseil/actions";
+import { syncAllEscouadeDiscordRolesInternal } from "@/app/(dashboard)/administration/admin-actions";
 
 /**
  * GET /api/cron/sync-discord
@@ -118,9 +119,8 @@ export async function GET(req: NextRequest) {
         }
       }
 
-      // Rate limiting : ~50 requêtes/seconde max Discord
-      // On attend 100ms entre chaque pour rester safe
-      await new Promise((r) => setTimeout(r, 100));
+      // Rate limiting Discord API — 500ms between each member to avoid 429
+      await sleep(DISCORD_BATCH_DELAY_MS);
     } catch (err) {
       failed++;
       const msg = err instanceof Error ? err.message : String(err);
@@ -130,10 +130,10 @@ export async function GET(req: NextRequest) {
 
   console.log(`[cron/sync-discord] Terminé: ${synced} sync, ${failed} erreurs sur ${utilisateurs.length} utilisateurs.`);
 
-  // Synchroniser les permissions du salon Top 3
+  // Synchroniser les permissions du salon de discussion Top 3 escouades
   try {
     await syncTop3DiscussionChannel();
-    console.log("[cron/sync-discord] Salon Top 3 synchronisé.");
+    console.log("[cron/sync-discord] Salon Top 3 escouades synchronisé.");
   } catch (err) {
     console.error("[cron/sync-discord] Erreur sync salon Top 3:", err);
   }

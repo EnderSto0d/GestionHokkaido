@@ -1,5 +1,7 @@
 import "server-only";
 
+import { discordFetch } from "./rate-limit";
+
 // TODO: Remplacer par l'ID du serveur Discord Hokkaido une fois créé
 export const DISCORD_GUILD_ID = "HOKKAIDO_GUILD_ID_HERE";
 
@@ -19,7 +21,7 @@ export async function fetchDiscordGuildMember(
   discordAccessToken: string,
   guildId: string = DISCORD_GUILD_ID
 ): Promise<DiscordGuildMember> {
-  const response = await fetch(
+  const response = await discordFetch(
     `https://discord.com/api/v10/users/@me/guilds/${guildId}/member`,
     {
       method: "GET",
@@ -62,7 +64,7 @@ export async function fetchDiscordGuildMemberByBot(
     throw new Error("DISCORD_BOT_TOKEN n'est pas configuré dans les variables d'environnement.");
   }
 
-  const response = await fetch(
+  const response = await discordFetch(
     `https://discord.com/api/v10/guilds/${guildId}/members/${discordUserId}`,
     {
       method: "GET",
@@ -98,7 +100,7 @@ export async function addDiscordRoleToMember(
     throw new Error("DISCORD_BOT_TOKEN n'est pas configuré dans les variables d'environnement.");
   }
 
-  const response = await fetch(
+  const response = await discordFetch(
     `https://discord.com/api/v10/guilds/${guildId}/members/${discordUserId}/roles/${roleId}`,
     {
       method: "PUT",
@@ -132,7 +134,7 @@ export async function sendDiscordChannelMessage(
     return false;
   }
   try {
-    const res = await fetch(
+    const res = await discordFetch(
       `https://discord.com/api/v10/channels/${channelId}/messages`,
       {
         method: "POST",
@@ -171,7 +173,7 @@ export async function setChannelRolePermission(
   const botToken = process.env.DISCORD_BOT_TOKEN;
   if (!botToken) return false;
   try {
-    const res = await fetch(
+    const res = await discordFetch(
       `https://discord.com/api/v10/channels/${channelId}/permissions/${roleId}`,
       {
         method: "PUT",
@@ -198,7 +200,7 @@ export async function deleteChannelRolePermission(
   const botToken = process.env.DISCORD_BOT_TOKEN;
   if (!botToken) return false;
   try {
-    const res = await fetch(
+    const res = await discordFetch(
       `https://discord.com/api/v10/channels/${channelId}/permissions/${roleId}`,
       {
         method: "DELETE",
@@ -227,7 +229,7 @@ export async function removeDiscordRoleFromMember(
     throw new Error("DISCORD_BOT_TOKEN n'est pas configuré dans les variables d'environnement.");
   }
 
-  const response = await fetch(
+  const response = await discordFetch(
     `https://discord.com/api/v10/guilds/${guildId}/members/${discordUserId}/roles/${roleId}`,
     {
       method: "DELETE",

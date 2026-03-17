@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient, createAdminClient } from "@/lib/supabase/server";
 import type { ActionResult } from "./actions";
 import { sendDiscordChannelMessage } from "@/lib/discord/guild-member";
+import { discordFetch } from "@/lib/discord/rate-limit";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -1140,7 +1141,7 @@ async function modifyDiscordRoleCP(
   if (!DISCORD_BOT_TOKEN_CP) return false;
   const method = action === "add" ? "PUT" : "DELETE";
   try {
-    const res = await fetch(
+    const res = await discordFetch(
       `https://discord.com/api/v10/guilds/${DISCORD_GUILD_ID_CP}/members/${discordId}/roles/${roleId}`,
       { method, headers: { Authorization: `Bot ${DISCORD_BOT_TOKEN_CP}`, "Content-Type": "application/json" } }
     );

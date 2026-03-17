@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient, createAdminClient } from "@/lib/supabase/server";
 import { DISCORD_GUILD_ID } from "@/lib/discord/guild-member";
+import { discordFetch } from "@/lib/discord/rate-limit";
 import { MAX_MISSION_POINTS, MAX_CUSTOM_MISSION_POINTS } from "@/lib/missions/config";
 import {
   CLAN_ROLE_IDS,
@@ -225,7 +226,7 @@ async function verifyMissionCreator(): Promise<
   const botToken = getBotToken();
   if (botToken && uu.discord_id) {
     try {
-      const res = await fetch(
+      const res = await discordFetch(
         `https://discord.com/api/v10/guilds/${DISCORD_GUILD_ID}/members/${uu.discord_id}`,
         {
           headers: { Authorization: `Bot ${botToken}` },
@@ -488,7 +489,7 @@ async function sendMissionSummaryEmbed(
   if (!botToken) return;
 
   try {
-    await fetch(
+    await discordFetch(
       `https://discord.com/api/v10/channels/${MISSION_CHANNEL_ID}/messages`,
       {
         method: "POST",
@@ -516,7 +517,7 @@ async function patchDiscordEmbedClosed(
   if (!botToken) return;
 
   try {
-    await fetch(
+    await discordFetch(
       `https://discord.com/api/v10/channels/${MISSION_CHANNEL_ID}/messages/${discordMessageId}`,
       {
         method: "PATCH",
@@ -550,7 +551,7 @@ async function sendDiscordEmbed(
   };
 
   try {
-    const res = await fetch(
+    const res = await discordFetch(
       `https://discord.com/api/v10/channels/${MISSION_CHANNEL_ID}/messages`,
       {
         method: "POST",
@@ -579,7 +580,7 @@ async function patchDiscordEmbed(
   if (!botToken) return;
 
   try {
-    await fetch(
+    await discordFetch(
       `https://discord.com/api/v10/channels/${MISSION_CHANNEL_ID}/messages/${discordMessageId}`,
       {
         method: "PATCH",
@@ -979,7 +980,7 @@ async function checkParticipationEligibility(
       const botToken = getBotToken();
       if (botToken) {
         try {
-          const res = await fetch(
+          const res = await discordFetch(
             `https://discord.com/api/v10/guilds/${DISCORD_GUILD_ID}/members/${discordId}`,
             {
               headers: { Authorization: `Bot ${botToken}` },
@@ -1212,7 +1213,10 @@ export async function terminerMission(missionId: string): Promise<ActionResult> 
       });
     }
 
-    newTotals.set(squad.escouadeId, currentPoints + squad.pointsEarned);
+    // Calculate total earned in this mission: personal points for present members + squad bonus
+    const presentCount = squad.participants.filter((p) => p.present).length;
+    const missionEarned = presentCount * mission.points_recompense + squad.pointsEarned;
+    newTotals.set(squad.escouadeId, missionEarned);
   }
 
   // Marquer la mission comme terminée
@@ -1466,6 +1470,7 @@ export async function modifierMission(
 
   const admin = await createAdminClient();
 
+  // Vérifier que la mission existe et est active
   const { data: existing } = await admin
     .from("missions")
     .select("id, createur_id, statut, discord_message_id")
@@ -1479,6 +1484,7 @@ export async function modifierMission(
     return { success: false, error: "Seule une mission active peut être modifiée." };
   }
 
+  // Vérifier les permissions (créateur, admin/prof, ou Exo Pro+)
   const { data: callerData } = await admin
     .from("utilisateurs")
     .select("role, grade_role")
@@ -1493,6 +1499,7 @@ export async function modifierMission(
     return { success: false, error: "Permissions insuffisantes pour modifier cette mission." };
   }
 
+  // Mise à jour en base
   const { error: updateError } = await admin
     .from("missions")
     .update({
@@ -1507,6 +1514,7 @@ export async function modifierMission(
 
   if (updateError) return { success: false, error: updateError.message };
 
+  // Mettre à jour l'embed Discord
   if (mission.discord_message_id) {
     const { data: updatedMission } = await admin
       .from("missions")
@@ -1532,6 +1540,8 @@ export async function modifierMission(
   revalidatePath("/missions");
   return { success: true };
 }
+
+// ─── Attendance / Roll-call (Appel) ──────────────────────────────────────────
 
 /** Toggle the "present" flag for a single participant in a mission. */
 export async function toggleMissionPresence(

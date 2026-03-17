@@ -8,6 +8,7 @@ import {
   setChannelRolePermission,
   deleteChannelRolePermission,
 } from "@/lib/discord/guild-member";
+import { discordFetch } from "@/lib/discord/rate-limit";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -128,7 +129,7 @@ async function modifyDiscordRole(
   }
   const method = action === "add" ? "PUT" : "DELETE";
   try {
-    const res = await fetch(
+    const res = await discordFetch(
       `https://discord.com/api/v10/guilds/${DISCORD_GUILD_ID}/members/${discordId}/roles/${roleId}`,
       {
         method,

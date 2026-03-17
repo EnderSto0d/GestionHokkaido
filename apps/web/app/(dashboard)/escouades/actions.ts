@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { DISCORD_GUILD_ID } from "@/lib/discord/guild-member";
+import { discordFetch } from "@/lib/discord/rate-limit";
 import { createClient, createAdminClient } from "@/lib/supabase/server";
 
 const DISCORD_API_BASE_URL = "https://discord.com/api/v10";
@@ -88,7 +89,7 @@ export async function syncNouvelleEscouadeDiscord(
   }
 
   // POST — Créer le rôle Discord
-  const createRoleResponse = await fetch(
+  const createRoleResponse = await discordFetch(
     `${DISCORD_API_BASE_URL}/guilds/${DISCORD_GUILD_ID}/roles`,
     {
       method: "POST",
@@ -119,7 +120,7 @@ export async function syncNouvelleEscouadeDiscord(
   }
 
   // PUT — Assigner le rôle au leader
-  const assignRoleResponse = await fetch(
+  const assignRoleResponse = await discordFetch(
     `${DISCORD_API_BASE_URL}/guilds/${DISCORD_GUILD_ID}/members/${leader.discord_id}/roles/${role.id}`,
     {
       method: "PUT",
@@ -216,7 +217,7 @@ export async function createSquadWithDiscordRole(
     // Rollback Discord : tenter de supprimer le rôle créé
     const botToken = getBotToken();
     if (botToken) {
-      await fetch(
+      await discordFetch(
         `${DISCORD_API_BASE_URL}/guilds/${DISCORD_GUILD_ID}/roles/${discordResult.roleId}`,
         {
           method: "DELETE",
@@ -302,7 +303,7 @@ export async function deleteSquadAndDiscordRole(
     const botToken = getBotToken();
 
     if (botToken) {
-      const deleteRoleResponse = await fetch(
+      const deleteRoleResponse = await discordFetch(
         `${DISCORD_API_BASE_URL}/guilds/${DISCORD_GUILD_ID}/roles/${escouadeDel.discord_role_id}`,
         {
           method: "DELETE",

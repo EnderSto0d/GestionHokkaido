@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient, createAdminClient } from "@/lib/supabase/server";
 import { fetchDiscordGuildMemberByBot, addDiscordRoleToMember } from "@/lib/discord/guild-member";
+import { discordFetch, sleep, DISCORD_BATCH_DELAY_MS } from "@/lib/discord/rate-limit";
 import { getGradeSecondaireFromDiscordRoles } from "@/lib/discord/role-mappings";
 import { SITE_ID } from "@/lib/site-config";
 import type { GradeRole, GradeSecondaire } from "@/types/database";
@@ -70,7 +71,7 @@ async function modifyDiscordRole(
   const method = action === "add" ? "PUT" : "DELETE";
 
   try {
-    const res = await fetch(
+    const res = await discordFetch(
       `https://discord.com/api/v10/guilds/${DISCORD_GUILD_ID}/members/${discordId}/roles/${roleId}`,
       {
         method,
@@ -613,6 +614,7 @@ export async function setAllSansGradeEnSeconde(): Promise<AdminActionResult & { 
   for (const u of users) {
     if (u.discord_id) {
       await modifyDiscordRole(u.discord_id, secondeRoleId, "add");
+      await sleep(DISCORD_BATCH_DELAY_MS);
     }
   }
 
@@ -698,7 +700,7 @@ export async function syncGradesFromDiscord(): Promise<AdminActionResult & { syn
       }
 
       // Rate limiting Discord API
-      await new Promise((r) => setTimeout(r, 100));
+      await sleep(DISCORD_BATCH_DELAY_MS);
     } catch {
       errors++;
     }
@@ -816,8 +818,8 @@ export async function syncAllEscouadeDiscordRoles(): Promise<
       try {
         await addDiscordRoleToMember(discordId, roleId);
         count++;
-        // Rate limiting Discord API : 100ms entre chaque requête
-        await new Promise((r) => setTimeout(r, 100));
+        // Rate limiting Discord API
+        await sleep(DISCORD_BATCH_DELAY_MS);
       } catch (err) {
         const reason = err instanceof Error ? err.message : String(err);
         console.error(`[sync-escouade-roles] Erreur pour discord_id=${discordId} (${pseudo}), escouade=${escouadeNom}:`, reason);
@@ -861,7 +863,7 @@ export async function syncAllEscouadeDiscordRolesInternal(
       try {
         await addDiscordRoleToMember(discordId, roleId);
         count++;
-        await new Promise((r) => setTimeout(r, 100));
+        await sleep(DISCORD_BATCH_DELAY_MS);
       } catch (err) {
         console.error(`[sync-escouade-roles] Erreur pour discord_id=${discordId}, roleId=${roleId}:`, err);
         errors++;

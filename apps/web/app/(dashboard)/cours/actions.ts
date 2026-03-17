@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient, createAdminClient } from "@/lib/supabase/server";
 import { DISCORD_GUILD_ID } from "@/lib/discord/guild-member";
+import { discordFetch } from "@/lib/discord/rate-limit";
 import {
   CLAN_ROLE_IDS,
   GRADE_TO_ROLE_ID,
@@ -363,7 +364,7 @@ async function sendCoursEmbed(
   if (!botToken) return null;
 
   try {
-    const res = await fetch(
+    const res = await discordFetch(
       `https://discord.com/api/v10/channels/${COURS_CHANNEL_ID}/messages`,
       {
         method: "POST",
@@ -396,7 +397,7 @@ async function patchCoursEmbed(
   if (!botToken) return;
 
   try {
-    await fetch(
+    await discordFetch(
       `https://discord.com/api/v10/channels/${COURS_CHANNEL_ID}/messages/${discordMessageId}`,
       {
         method: "PATCH",
@@ -425,7 +426,7 @@ async function patchCoursEmbedClosed(
   if (!botToken) return;
 
   try {
-    await fetch(
+    await discordFetch(
       `https://discord.com/api/v10/channels/${COURS_CHANNEL_ID}/messages/${discordMessageId}`,
       {
         method: "PATCH",
@@ -454,7 +455,7 @@ async function sendCoursSummaryEmbed(
   if (!botToken) return;
 
   try {
-    await fetch(
+    await discordFetch(
       `https://discord.com/api/v10/channels/${COURS_CHANNEL_ID}/messages`,
       {
         method: "POST",
