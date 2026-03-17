@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/server";
 import { fetchDiscordGuildMemberByBot, addDiscordRoleToMember, removeDiscordRoleFromMember } from "@/lib/discord/guild-member";
 import { resolveDiscordRoles, getGradeSecondaireFromDiscordRoles, GRADE_SECONDAIRE_TO_ROLE_ID, ALL_GRADES_SECONDAIRES } from "@/lib/discord/role-mappings";
 import { syncAllEscouadeDiscordRolesInternal } from "@/app/(dashboard)/administration/admin-actions";
+import { syncTop3DiscussionChannel } from "@/app/(dashboard)/conseil/actions";
 
 /**
  * GET /api/cron/sync-discord
@@ -128,6 +129,14 @@ export async function GET(req: NextRequest) {
   }
 
   console.log(`[cron/sync-discord] Terminé: ${synced} sync, ${failed} erreurs sur ${utilisateurs.length} utilisateurs.`);
+
+  // Synchroniser les permissions du salon Top 3
+  try {
+    await syncTop3DiscussionChannel();
+    console.log("[cron/sync-discord] Salon Top 3 synchronisé.");
+  } catch (err) {
+    console.error("[cron/sync-discord] Erreur sync salon Top 3:", err);
+  }
 
   // Synchroniser les rôles Discord de toutes les escouades (rétroactif)
   let escouadeRolesSynced = 0;
