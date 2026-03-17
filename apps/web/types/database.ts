@@ -158,6 +158,10 @@ export interface Database {
           logistics_points: number;
           /** Bonus logistique actuellement appliqué sur points_personnels (suivi pour recalcul). */
           logistics_bonus_applied: number;
+          /** Site de l'utilisateur : "tokyo" | "hokkaido". */
+          site: string | null;
+          /** ID de l'utilisateur dans Supabase Auth (auth.users). */
+          auth_user_id: string | null;
           cree_le: string;
           mis_a_jour_le: string;
         };
@@ -185,6 +189,8 @@ export interface Database {
           points_personnels?: number;
           logistics_points?: number;
           logistics_bonus_applied?: number;
+          site?: string | null;
+          auth_user_id?: string | null;
         };
         Update: {
           id?: string;
@@ -210,6 +216,8 @@ export interface Database {
           points_personnels?: number;
           logistics_points?: number;
           logistics_bonus_applied?: number;
+          site?: string | null;
+          auth_user_id?: string | null;
         };
         Relationships: [];
       };

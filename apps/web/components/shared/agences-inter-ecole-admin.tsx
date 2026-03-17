@@ -8,7 +8,7 @@ type ExoPro = {
   id: string;
   pseudo: string;
   grade_role: string | null;
-  site_id: string | null;
+  site: string | null;
 };
 
 type Props = {
@@ -198,7 +198,7 @@ export function AgencesInterEcoleAdmin({ exoProList }: Props) {
                         <option key={u.id} value={u.id}>
                           {u.pseudo}
                           {u.grade_role ? ` (${u.grade_role})` : ""}
-                          {u.site_id ? ` — ${siteBadge(u.site_id)}` : ""}
+                          {u.site ? ` — ${siteBadge(u.site)}` : ""}
                         </option>
                       ))}
                     </select>

@@ -3,6 +3,7 @@
 import { createClient, createAdminClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
+import { SITE_ID } from "@/lib/site-config";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -15,7 +16,7 @@ async function getCurrentUser() {
 
   const { data: utilisateur } = await supabase
     .from("utilisateurs")
-    .select("id, role, grade_role, grade_secondaire, site_id, pseudo")
+    .select("id, role, grade_role, grade_secondaire, pseudo, site")
     .eq("id", user.id)
     .single();
 
@@ -25,8 +26,8 @@ async function getCurrentUser() {
     role: string;
     grade_role: string | null;
     grade_secondaire: string | null;
-    site_id: string | null;
     pseudo: string;
+    site: string | null;
   };
 }
 
@@ -51,16 +52,6 @@ export async function getAgences() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const { data: currentUser } = await supabase
-    .from("utilisateurs")
-    .select("site_id")
-    .eq("id", user.id)
-    .single();
-
-  if (!currentUser) redirect("/login");
-
-  const siteId = (currentUser as { site_id: string | null }).site_id;
-
   // Agences de l'école de l'utilisateur + toutes les agences inter-école
   const { data, error } = await supabase
     .from("agences")
@@ -71,7 +62,7 @@ export async function getAgences() {
       stagiaires_agence(count)
     `
     )
-    .or(`site_id.eq.${siteId},est_inter_ecole.eq.true`)
+    .or(`site_id.eq.${SITE_ID},est_inter_ecole.eq.true`)
     .order("cree_le", { ascending: false });
 
   if (error) return { agences: [], error: error.message };
@@ -107,7 +98,7 @@ export async function getAgence(agenceId: string) {
       .select(
         `
         *,
-        utilisateurs(id, pseudo, avatar_url, grade_role, site_id)
+        utilisateurs(id, pseudo, avatar_url, grade_role)
       `
       )
       .eq("agence_id", agenceId)
@@ -118,7 +109,7 @@ export async function getAgence(agenceId: string) {
       .select(
         `
         *,
-        utilisateurs!stagiaires_agence_utilisateur_id_fkey(id, pseudo, avatar_url, grade_secondaire, site_id),
+        utilisateurs!stagiaires_agence_utilisateur_id_fkey(id, pseudo, avatar_url, grade_secondaire),
         parrain:utilisateurs!stagiaires_agence_parrain_id_fkey(id, pseudo)
       `
       )
@@ -221,12 +212,12 @@ export async function getEligibleStagiaires(agenceId: string) {
 
   let baseQuery = supabase
     .from("utilisateurs")
-    .select("id, pseudo, avatar_url, grade_secondaire, site_id")
+    .select("id, pseudo, avatar_url, grade_secondaire, site")
     .eq("grade_secondaire", "Terminal");
 
   // Pour les agences d'école, restreindre au même site
   if (!agenceTyped.est_inter_ecole && agenceTyped.site_id) {
-    baseQuery = baseQuery.eq("site_id", agenceTyped.site_id) as typeof baseQuery;
+    baseQuery = baseQuery.eq("site", agenceTyped.site_id) as typeof baseQuery;
   }
 
   const { data: allTerminal } = await baseQuery.order("pseudo");
@@ -246,7 +237,7 @@ export async function getExoProPlusForAdmin() {
   const supabase = await createClient();
   const { data } = await supabase
     .from("utilisateurs")
-    .select("id, pseudo, grade_role, site_id")
+    .select("id, pseudo, grade_role, site")
     .in("grade_role", EXO_PRO_PLUS_ROLES)
     .order("pseudo");
 
@@ -300,7 +291,7 @@ export async function creerAgence(data: {
       description: data.description?.trim() || null,
       url_logo: data.url_logo?.trim() || null,
       fondateur_id: utilisateur.id,
-      site_id: utilisateur.site_id,
+      site_id: utilisateur.site,
       est_inter_ecole: false,
     })
     .select()
@@ -486,7 +477,7 @@ export async function rejoindreAgence(
   if (!agenceTyped) return { success: false, error: "Agence introuvable." };
 
   // Pour les agences d'école, vérifier même site
-  if (!agenceTyped.est_inter_ecole && agenceTyped.site_id !== utilisateur.site_id) {
+  if (!agenceTyped.est_inter_ecole && agenceTyped.site_id !== utilisateur.site) {
     return {
       success: false,
       error: "Vous ne pouvez rejoindre qu'une agence de votre école.",

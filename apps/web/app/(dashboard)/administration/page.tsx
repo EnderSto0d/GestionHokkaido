@@ -195,7 +195,7 @@ export default async function AdministrationPage() {
         {isAdmin && (
           <div className="mt-10">
             <div className="h-px bg-gradient-to-r from-violet-500/30 via-white/10 to-transparent mb-8" />
-            <AgencesInterEcoleAdmin exoProList={exoProList as Array<{ id: string; pseudo: string; grade_role: string | null; site_id: string | null }>} />
+            <AgencesInterEcoleAdmin exoProList={exoProList as Array<{ id: string; pseudo: string; grade_role: string | null; site: string | null }>} />
           </div>
         )}
       </div>
