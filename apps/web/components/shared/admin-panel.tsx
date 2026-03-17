@@ -113,7 +113,7 @@ export function AdminPanel({
   const [feedback, setFeedback] = useState<{ type: "success" | "error"; msg: string } | null>(null);
   const [isPending, startTransition] = useTransition();
   const [isSyncingEscouades, setIsSyncingEscouades] = useState(false);
-  const [escouadesSyncResult, setEscouadesSyncResult] = useState<{ count: number; errors: number } | null>(null);
+  const [escouadesSyncResult, setEscouadesSyncResult] = useState<{ count: number; errors: number; skipped: number } | null>(null);
 
   // ── Local mutable state for optimistic updates ──────────────────────
   const [localStudents, setLocalStudents] = useState(students);
@@ -243,7 +243,7 @@ export function AdminPanel({
       try {
         const result = await syncAllEscouadeDiscordRoles();
         if (result.success) {
-          setEscouadesSyncResult({ count: result.count ?? 0, errors: 0 });
+          setEscouadesSyncResult({ count: result.count ?? 0, errors: result.errors ?? 0, skipped: result.skipped ?? 0 });
         } else {
           showFeedback("error", result.error ?? "Erreur lors de la synchronisation.");
         }
@@ -521,7 +521,9 @@ export function AdminPanel({
                 </button>
                 {escouadesSyncResult && (
                   <p className="text-[11px] text-emerald-400/80">
-                    ✓ {escouadesSyncResult.count} assignation(s) · {escouadesSyncResult.errors} erreur(s)
+                    ✓ {escouadesSyncResult.count} assigné(s)
+                    {escouadesSyncResult.skipped > 0 && ` · ${escouadesSyncResult.skipped} sans discord_id`}
+                    {escouadesSyncResult.errors > 0 && <span className="text-red-400/80"> · {escouadesSyncResult.errors} erreur(s)</span>}
                   </p>
                 )}
               </div>

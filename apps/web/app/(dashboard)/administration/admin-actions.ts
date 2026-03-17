@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient, createAdminClient } from "@/lib/supabase/server";
 import { fetchDiscordGuildMemberByBot, addDiscordRoleToMember } from "@/lib/discord/guild-member";
 import { getGradeSecondaireFromDiscordRoles } from "@/lib/discord/role-mappings";
+import { SITE_ID } from "@/lib/site-config";
 import type { GradeRole, GradeSecondaire } from "@/types/database";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -772,28 +773,31 @@ export async function getPointsHistoriqueAdmin(
  * Accessible aux professeurs et admins via l'interface d'administration.
  */
 export async function syncAllEscouadeDiscordRoles(): Promise<
-  AdminActionResult & { count?: number }
+  AdminActionResult & { count?: number; errors?: number; skipped?: number }
 > {
   const auth = await verifyProfOrAdmin();
   if ("error" in auth) return { success: false, error: auth.error };
 
   const admin = await createAdminClient();
 
-  // Récupérer toutes les escouades avec discord_role_id et les discord_id de leurs membres
+  // Récupérer uniquement les escouades du site courant avec discord_role_id et les discord_id de leurs membres
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: escouades, error: fetchErr } = await (admin.from("escouades") as any)
     .select("id, discord_role_id, membres_escouade(utilisateurs(id, discord_id))")
-    .not("discord_role_id", "is", null);
+    .not("discord_role_id", "is", null)
+    .eq("site_id", SITE_ID);
 
   if (fetchErr) {
     return { success: false, error: "Erreur lors de la récupération des escouades." };
   }
 
   if (!escouades || (escouades as any[]).length === 0) {
-    return { success: true, count: 0 };
+    return { success: true, count: 0, errors: 0, skipped: 0 };
   }
 
   let count = 0;
+  let errors = 0;
+  let skipped = 0;
 
   for (const escouade of escouades as any[]) {
     const roleId = escouade.discord_role_id as string;
@@ -801,7 +805,10 @@ export async function syncAllEscouadeDiscordRoles(): Promise<
 
     for (const membre of membres) {
       const discordId = membre.utilisateurs?.discord_id as string | null;
-      if (!discordId) continue;
+      if (!discordId) {
+        skipped++;
+        continue;
+      }
 
       try {
         await addDiscordRoleToMember(discordId, roleId);
@@ -810,12 +817,13 @@ export async function syncAllEscouadeDiscordRoles(): Promise<
         await new Promise((r) => setTimeout(r, 100));
       } catch (err) {
         console.error(`[sync-escouade-roles] Erreur pour discord_id=${discordId}, roleId=${roleId}:`, err);
+        errors++;
       }
     }
   }
 
   revalidatePath("/administration");
-  return { success: true, count };
+  return { success: true, count, errors, skipped };
 }
 
 /**
@@ -828,7 +836,8 @@ export async function syncAllEscouadeDiscordRolesInternal(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: escouades, error: fetchErr } = await (adminClient.from("escouades") as any)
     .select("id, discord_role_id, membres_escouade(utilisateurs(id, discord_id))")
-    .not("discord_role_id", "is", null);
+    .not("discord_role_id", "is", null)
+    .eq("site_id", SITE_ID);
 
   if (fetchErr || !escouades || (escouades as any[]).length === 0) {
     return { count: 0, errors: fetchErr ? 1 : 0 };
