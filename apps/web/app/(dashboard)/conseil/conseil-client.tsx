@@ -159,7 +159,7 @@ export function ConseilClient({
   const electionEleve = elections.find((e) => e.type === "elu_eleve");
   const electionStaff = elections.find((e) => e.type === "elu_joker");
   const siegesJokerOccupes = membres.filter((m) => m.type_siege === "elu_joker").length;
-  const maxVotesStaff = (electionStaff?.nb_sieges ?? 3) - siegesJokerOccupes;
+  const maxVotesStaff = electionStaff?.nb_sieges ?? 1;
 
   function showFeedback(msg: string, isError: boolean) {
     if (isError) {
@@ -590,7 +590,7 @@ export function ConseilClient({
                       Élection Joker en cours
                     </h3>
                     <p className="text-[10px] text-white/30 mt-0.5">
-                      {electionStaff.nb_sieges} sièges ({electionStaff.nb_sieges - siegesJokerOccupes} restant{electionStaff.nb_sieges - siegesJokerOccupes > 1 ? "s" : ""}) — vote réservé aux professeurs
+                      {electionStaff.nb_sieges} sièges ({electionStaff.nb_sieges} restant{electionStaff.nb_sieges > 1 ? "s" : ""}) — vote réservé aux professeurs
                     </p>
                   </div>
                   <div className="flex flex-wrap gap-2 mt-2 sm:mt-0">
@@ -874,7 +874,7 @@ export function ConseilClient({
                 <div className="flex items-center justify-between">
                   <div>
                     <h3 className="font-bold text-white text-sm">Élection Joker en cours</h3>
-                    <p className="text-[10px] text-white/30">{electionStaff.nb_sieges} sièges ({electionStaff.nb_sieges - siegesJokerOccupes} restant{electionStaff.nb_sieges - siegesJokerOccupes > 1 ? "s" : ""}) — vote de l&apos;équipe professorale</p>
+                    <p className="text-[10px] text-white/30">{electionStaff.nb_sieges} sièges ({electionStaff.nb_sieges} restant{electionStaff.nb_sieges > 1 ? "s" : ""}) — vote de l&apos;équipe professorale</p>
                   </div>
                   <div className="flex gap-2">
                     <button onClick={() => handleCloturer(electionStaff.id)} disabled={pending} className="px-4 py-2 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-400 text-xs font-medium ring-1 ring-emerald-500/20 transition-all disabled:opacity-50">

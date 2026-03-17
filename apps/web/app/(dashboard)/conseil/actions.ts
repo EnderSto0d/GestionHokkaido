@@ -275,6 +275,13 @@ async function notifyElectionDiscord(
       "Les membres des escouades du **Top 3** peuvent voter pour leurs représentants.\n\n" +
       `💬 Salon de discussion : <#${DISCORD_TOP3_DISCUSSION_CHANNEL_ID}>`;
   } else {
+    const PROF_ROLE_IDS = [
+      "1460101031269634183",  // Directeur
+      "1476988002986098828",  // Co-Directeur
+      "1460101093773021226",  // Professeur Principal
+      "1460101179726893108",  // Professeur
+    ];
+    content = PROF_ROLE_IDS.map((id) => `<@&${id}>`).join(" ");
     typeLabel = "Sièges Joker — Équipe Professorale";
     description =
       "Une élection pour les **sièges joker** du Conseil vient d'être lancée !\n\n" +
