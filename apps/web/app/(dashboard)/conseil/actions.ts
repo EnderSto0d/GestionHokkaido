@@ -25,6 +25,9 @@ const MAX_SIEGES_STAFF = 3;
 const MAX_VOTES_ELEVE = 3; // chaque votant peut voter pour 3 candidats max
 const MIN_ESCOUADES_TOP3 = 3; // minimum 3 escouades dans le top 3 pour lancer une élection
 
+// Grade roles eligible for council candidacy (Exorciste Pro or higher)
+const ELIGIBLE_GRADE_ROLES = ["Exorciste Pro", "Professeur", "Professeur Principal", "Co-Directeur", "Directeur"] as const;
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export type ActionResult =
@@ -267,7 +270,7 @@ async function notifyElectionDiscord(
       .filter((e) => e.discord_role_id)
       .map((e) => `<@&${e.discord_role_id}>`)
       .join(" ");
-    if (pings) content = pings;
+    content = pings ? `@everyone ${pings}` : "@everyone";
 
     typeLabel = "Sièges Élève — Top 3 Escouades";
     description =
@@ -554,6 +557,16 @@ export async function voterEleve(
     }
   }
 
+  // Vérifier que le candidat a le grade requis (Exorciste Pro ou +)
+  const { data: candidatUser } = await admin
+    .from("utilisateurs")
+    .select("grade_role")
+    .eq("id", candidatId)
+    .single();
+  if (!candidatUser || !ELIGIBLE_GRADE_ROLES.includes((candidatUser as any).grade_role)) {
+    return { success: false, error: "Le candidat doit être au minimum Exorciste Pro." };
+  }
+
   // Vérifier que le candidat n'est pas déjà dans le conseil (sauf classement_perso qui sera remplacé par priorité)
   const { data: dejaConseil } = await admin
     .from("conseil_membres")
@@ -655,6 +668,16 @@ export async function voterStaff(
 
   if (bloque && bloque.length > 0) {
     return { success: false, error: "Vous avez annulé votre vote pour ce candidat, vous ne pouvez plus voter pour lui." };
+  }
+
+  // Vérifier que le candidat a le grade requis (Exorciste Pro ou +)
+  const { data: candidatUser } = await admin
+    .from("utilisateurs")
+    .select("grade_role")
+    .eq("id", candidatId)
+    .single();
+  if (!candidatUser || !ELIGIBLE_GRADE_ROLES.includes((candidatUser as any).grade_role)) {
+    return { success: false, error: "Le candidat doit être au minimum Exorciste Pro." };
   }
 
   // Compter les sièges joker déjà occupés
@@ -1003,6 +1026,7 @@ export async function getCandidatsPossibles(): Promise<
     .from("utilisateurs")
     .select("id, pseudo, avatar_url, prenom_rp, nom_rp")
     .in("id", candidatIds)
+    .in("grade_role", Array.from(ELIGIBLE_GRADE_ROLES))
     .order("pseudo");
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -1025,11 +1049,11 @@ export async function getCandidatsJokerPossibles(): Promise<
     (m: any) => m.utilisateur_id as string
   );
 
-  // Récupérer tous les élèves (role = 'eleve') qui ne sont pas déjà au conseil
+  // Récupérer tous les utilisateurs Exorciste Pro ou + qui ne sont pas déjà au conseil
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let query = (admin.from("utilisateurs") as any)
     .select("id, pseudo, avatar_url, prenom_rp, nom_rp")
-    .eq("role", "eleve")
+    .in("grade_role", ELIGIBLE_GRADE_ROLES)
     .order("pseudo");
 
   if (conseilIds.length > 0) {
