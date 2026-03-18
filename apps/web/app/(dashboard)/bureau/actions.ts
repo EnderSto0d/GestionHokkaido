@@ -14,6 +14,9 @@ const DISCORD_GUILD_ID = "1456715316313981153";
 const MAX_NOMME_SEATS = 4;
 const SITE_ID = process.env.NEXT_PUBLIC_SITE_ID ?? "tokyo";
 
+// Grade roles eligible for bureau membership (Exorciste Pro or higher)
+const ELIGIBLE_GRADE_ROLES = ["Exorciste Pro", "Professeur", "Professeur Principal", "Co-Directeur", "Directeur"];
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export type ActionResult =
@@ -293,15 +296,16 @@ export async function getCandidatsBureau(): Promise<
 
   const membresIds = (membres ?? []).map((m) => m.utilisateur_id);
 
-  // Récupère tous les utilisateurs du site excluant les membres actuels
-  let query = admin
-    .from("utilisateurs")
+  // Récupère les utilisateurs Exorciste Pro ou + excluant les membres actuels
+  // Note: pas de filtre site_id car ce champ peut être null pour certains utilisateurs
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let query = (admin.from("utilisateurs") as any)
     .select("id, pseudo, avatar_url")
-    .eq("site_id", SITE_ID)
+    .in("grade_role", ELIGIBLE_GRADE_ROLES)
     .order("pseudo", { ascending: true });
 
   if (membresIds.length > 0) {
-    query = query.not("id", "in", membresIds);
+    query = query.not("id", "in", `(${membresIds.join(",")})`);
   }
 
   const { data, error } = await query;
@@ -311,7 +315,7 @@ export async function getCandidatsBureau(): Promise<
     return [];
   }
 
-  return (data ?? []).map((u) => ({
+  return (data ?? []).map((u: { id: string; pseudo: string | null; avatar_url: string | null }) => ({
     id: u.id,
     pseudo: u.pseudo ?? "Inconnu",
     avatar_url: u.avatar_url ?? null,
@@ -397,16 +401,19 @@ export async function nommerMembreBureau(userId: string): Promise<ActionResult> 
     return { success: false, error: "Cet utilisateur est déjà membre du bureau." };
   }
 
-  // Vérifie que l'utilisateur cible existe sur ce site
+  // Vérifie que l'utilisateur cible existe et a le grade requis (Exorciste Pro ou +)
   const { data: targetUser, error: targetError } = await admin
     .from("utilisateurs")
-    .select("id, discord_id, pseudo")
+    .select("id, discord_id, pseudo, grade_role")
     .eq("id", userId)
-    .eq("site_id", SITE_ID)
     .maybeSingle();
 
   if (targetError || !targetUser) {
-    return { success: false, error: "Utilisateur introuvable sur ce site." };
+    return { success: false, error: "Utilisateur introuvable." };
+  }
+
+  if (!ELIGIBLE_GRADE_ROLES.includes((targetUser as any).grade_role)) {
+    return { success: false, error: "Cet utilisateur doit être au minimum Exorciste Pro pour rejoindre le bureau." };
   }
 
   // Insère le nouveau membre du bureau
