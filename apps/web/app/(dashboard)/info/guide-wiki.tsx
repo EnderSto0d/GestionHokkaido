@@ -360,6 +360,13 @@ function buildPages(): WikiPage[] {
               Les administrateurs Directeurs et Co-Directeurs peuvent aussi supprimer n&apos;importe quelle escouade depuis sa page de détail.
             </Tip>
           )}
+          <p className="font-medium text-white/60">Rôles Custom d&apos;Escouade :</p>
+          <BulletList items={[
+            "Le chef peut créer jusqu'à 10 rôles personnalisés avec un nom unique et une couleur au choix (12 couleurs préréglées + palette libre).",
+            "Chaque rôle dispose de 4 permissions indépendantes : Inviter (envoyer des invitations), Expulser (virer des membres), Modifier la page (description, logo, images), Gérer les rôles (assigner des rôles aux membres).",
+            "Les membres avec la permission correspondante peuvent utiliser les fonctions réservées au chef.",
+            "Le badge du rôle s'affiche en couleur sur la carte membre. Les membres autorisés peuvent cliquer dessus pour changer le rôle d'un autre membre.",
+          ]} />
           <Tip>
             Lorsqu&apos;un joueur rejoint ou quitte une escouade, le rôle Discord de l&apos;escouade est automatiquement ajouté ou retiré.
           </Tip>
@@ -689,6 +696,75 @@ function buildPages(): WikiPage[] {
           ]} />
           <Tip>
             Chaque bouton nécessite une <strong className="text-white/70">double confirmation</strong> : le premier clic change le bouton en mode confirmation (couleur + nouveau libellé), le second clic exécute l&apos;action.
+          </Tip>
+        </>
+      ),
+    },
+    {
+      id: "cours",
+      title: "Cours",
+      icon: <IconBook />,
+      category: "gameplay",
+      badge: "Tous",
+      badgeColor: "bg-emerald-500/20 text-emerald-300",
+      keywords: ["cours", "classe", "enseignant", "inscription", "appel", "présence", "points", "créer", "terminal", "classe 2", "exo pro", "clôturer", "annuler"],
+      access: "all",
+      content: () => (
+        <>
+          <p>
+            Les cours sont des sessions d&apos;apprentissage organisées par les membres qualifiés de l&apos;école. Les participants inscrits peuvent être marqués présents pour recevoir leurs points personnels.
+          </p>
+
+          <p className="font-medium text-white/60">Qui peut créer un cours ?</p>
+          <p className="text-sm text-white/50 mb-2">
+            La création est ouverte si <em>au moins une</em> des conditions suivantes est remplie :
+          </p>
+          <BulletList items={[
+            "Avoir le rôle Professeur ou Administrateur.",
+            "Avoir un grade-rôle Exorciste Pro ou supérieur (Professeur, Professeur Principal, Co-Directeur, Directeur).",
+            "Être en Terminal (année scolaire).",
+            "Avoir un grade de combat Classe 2 ou supérieur.",
+          ]} />
+
+          <p className="font-medium text-white/60">Créer un cours :</p>
+          <BulletList items={[
+            "Cliquez sur « + Créer un cours » en haut de la page Cours.",
+            "Remplissez : Titre (obligatoire, max 200 caractères), Date / Heure (optionnel), Capacité (optionnel), Description (optionnel).",
+            "Définissez qui sera pingué sur Discord (même système que les missions : @everyone, élèves, escouades, clans, grades…).",
+            "Un embed Discord est automatiquement posté avec un bouton d'inscription.",
+          ]} />
+
+          <p className="font-medium text-white/60">Inscription au cours :</p>
+          <BulletList items={[
+            "Cliquez sur « S'inscrire » depuis la page du cours. Vous pouvez vous désinscrire tant que le cours est actif.",
+            "Si une capacité est définie, l'inscription sera bloquée une fois toutes les places prises.",
+            "L'embed Discord se met à jour à chaque inscription (places restantes, nombre d'inscrits).",
+          ]} />
+
+          <p className="font-medium text-white/60">Appel & Présences :</p>
+          <BulletList items={[
+            "Le créateur (ou un prof/admin) marque les participants présents ou absents depuis la page de détail du cours.",
+            "Le bouton « Tout marquer présents » valide tous les inscrits en un seul clic.",
+            "Il faut au minimum 5 présents pour pouvoir clôturer le cours.",
+          ]} />
+
+          <p className="font-medium text-white/60">Points distribués à la clôture :</p>
+          <BulletList items={[
+            "+5 points personnels pour chaque élève marqué présent.",
+            "+15 points personnels pour l'enseignant (créateur du cours).",
+            "Aucun bonus d'escouade — les cours attribuent uniquement des points personnels.",
+          ]} />
+
+          <p className="font-medium text-white/60">Contrôles du créateur :</p>
+          <BulletList items={[
+            "Modifier le cours (titre, date, capacité, description) — l'embed Discord est mis à jour automatiquement.",
+            "Clôturer & distribuer les points — minimum 5 présents requis, un récapitulatif est posté sur Discord.",
+            "Annuler le cours — aucun point distribué.",
+            "Supprimer le cours (accessible aussi aux profs/admins).",
+          ]} />
+
+          <Tip>
+            Les cours diffèrent des missions : pas de multiplicateurs d&apos;escouade, pas de points d&apos;escouade. L&apos;enseignant fait l&apos;appel manuellement et valide les présences avant de clôturer.
           </Tip>
         </>
       ),
