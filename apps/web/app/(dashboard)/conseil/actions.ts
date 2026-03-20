@@ -12,9 +12,9 @@ import { discordFetch } from "@/lib/discord/rate-limit";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const DISCORD_CONSEIL_ROLE_ID = "1478966492388397118";
+const DISCORD_CONSEIL_ROLE_ID = "1475548078294437969";
 const DISCORD_BOT_TOKEN = process.env.DISCORD_BOT_TOKEN;
-const DISCORD_GUILD_ID = "1456715316313981153";
+const DISCORD_GUILD_ID = "1460103906087665707";
 
 // Salons Discord du Conseil
 const DISCORD_ELECTION_CHANNEL_ID = "1482820615697338378";

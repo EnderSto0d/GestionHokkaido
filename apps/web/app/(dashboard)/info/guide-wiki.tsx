@@ -507,20 +507,20 @@ function buildPages(): WikiPage[] {
     },
     {
       id: "bureau",
-      title: "Bureau Directorial",
+      title: "Conseil des 5",
       icon: <IconBriefcase />,
       category: "gameplay",
       badge: "Tous",
       badgeColor: "bg-emerald-500/20 text-emerald-300",
-      keywords: ["bureau", "directorial", "directeur", "nomination", "election", "populaire", "membres", "chef", "siège", "nommé", "élu"],
+      keywords: ["conseil des 5", "bureau", "directorial", "directeur", "nomination", "election", "populaire", "membres", "chef", "siège", "nommé", "élu"],
       access: "all" as Access,
       content: () => (
         <div className="space-y-6">
           <section>
-            <h2 className="text-lg font-semibold text-white mb-3">Qu&apos;est-ce que le Bureau Directorial&nbsp;?</h2>
+            <h2 className="text-lg font-semibold text-white mb-3">Qu&apos;est-ce que le Conseil des 5&nbsp;?</h2>
             <p className="text-white/60 text-sm leading-relaxed">
-              Le Bureau Directorial est un organe consultatif composé de <strong className="text-white">5 membres</strong>.
-              Il est placé sous la supervision du Directeur et du Co-Directeur, qui ne font pas partie du bureau
+              Le Conseil des 5 est un organe consultatif composé de <strong className="text-white">5 membres</strong>.
+              Il est placé sous la supervision du Directeur et du Co-Directeur, qui n&apos;en font pas partie
               mais en sont les têtes tutélaires.
             </p>
           </section>
@@ -530,7 +530,7 @@ function buildPages(): WikiPage[] {
             <BulletList items={[
               "4 sièges nommés : désignés directement par le Directeur.",
               "1 siège élu : choisi par l'ensemble des membres de l'école via une élection populaire.",
-              "Un chef du bureau est désigné parmi les 5 membres par le Directeur.",
+              "Un chef du Conseil des 5 est désigné parmi les 5 membres par le Directeur.",
             ]} />
           </section>
 
@@ -551,7 +551,7 @@ function buildPages(): WikiPage[] {
           <section>
             <h2 className="text-lg font-semibold text-white mb-3">Rôle Discord</h2>
             <p className="text-white/60 text-sm leading-relaxed">
-              Les membres du bureau reçoivent automatiquement le rôle Discord du bureau lors de leur nomination
+              Les membres du Conseil des 5 reçoivent automatiquement le rôle Discord correspondant lors de leur nomination
               ou de leur élection. Ce rôle est retiré en cas de révocation ou de départ.
             </p>
           </section>

@@ -2,8 +2,7 @@ import "server-only";
 
 import { discordFetch } from "./rate-limit";
 
-// TODO: Remplacer par l'ID du serveur Discord Hokkaido une fois créé
-export const DISCORD_GUILD_ID = "HOKKAIDO_GUILD_ID_HERE";
+export const DISCORD_GUILD_ID = "1460103906087665707";
 
 export type DiscordGuildMember = {
   user: {

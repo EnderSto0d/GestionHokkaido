@@ -1129,9 +1129,9 @@ export async function isConseilMember(userId?: string): Promise<boolean> {
 const CLASSEMENT_PERSO_DELAY_MS = 24 * 60 * 60 * 1000; // 24 hours
 const MIN_POINTS_SOLO = 150;
 
-const DISCORD_CONSEIL_ROLE_ID = "1478966492388397118";
+const DISCORD_CONSEIL_ROLE_ID = "1475548078294437969";
 const DISCORD_BOT_TOKEN_CP = process.env.DISCORD_BOT_TOKEN;
-const DISCORD_GUILD_ID_CP = "1456715316313981153";
+const DISCORD_GUILD_ID_CP = "1460103906087665707";
 
 async function modifyDiscordRoleCP(
   discordId: string,

@@ -13,8 +13,8 @@ import {
 import { BureauClient } from "@/components/shared/bureau-client";
 
 export const metadata: Metadata = {
-  title: "Bureau Directorial — GestionHokkaido",
-  description: "Bureau Directorial de l'École d'Exorcisme de Hokkaido.",
+  title: "Conseil des 5 — GestionHokkaido",
+  description: "Conseil des 5 de l'École d'Exorcisme de Hokkaido.",
 };
 
 export default async function BureauPage() {
@@ -79,7 +79,7 @@ export default async function BureauPage() {
       <div className="relative z-10 mx-auto max-w-4xl px-4 py-10 sm:px-6 lg:px-8 animate-fade-in">
         <header className="mb-10">
           <p className="text-xs text-white/25 uppercase tracking-widest mb-5 font-medium">
-            École d&apos;Exorcisme de Hokkaido&nbsp;&nbsp;/&nbsp;&nbsp;Bureau
+            École d&apos;Exorcisme de Hokkaido&nbsp;&nbsp;/&nbsp;&nbsp;Conseil des 5
           </p>
           <div className="flex items-start gap-4 mb-4">
             <div className="relative flex-shrink-0 mt-1">
@@ -103,15 +103,15 @@ export default async function BureauPage() {
             </div>
             <div>
               <h1 className="text-3xl font-bold text-white tracking-tight">
-                Bureau{" "}
+                Conseil{" "}
                 <span className="bg-gradient-to-r from-violet-400 to-indigo-400 bg-clip-text text-transparent">
-                  Directorial
+                  des 5
                 </span>
               </h1>
               <p className="mt-2 text-sm text-white/40">
                 5 membres : 4 nommés par le Directeur, 1 élu par les membres de l&apos;école.
                 {userIsMember && (
-                  <span className="ml-2 text-violet-400/70">Vous êtes membre du bureau.</span>
+                  <span className="ml-2 text-violet-400/70">Vous êtes membre du Conseil des 5.</span>
                 )}
               </p>
             </div>

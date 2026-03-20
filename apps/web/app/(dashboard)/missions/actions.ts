@@ -24,13 +24,13 @@ import { isConseilMember } from "@/app/(dashboard)/conseil/conseil-actions";
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 /** Canal Discord où les embeds de mission sont postés. */
-const MISSION_CHANNEL_ID = "1479038626749878335";
+const MISSION_CHANNEL_ID = "1460103906800566349";
 
 /**
  * Rôle Discord spécial permettant de créer des missions.
  * S'ajoute aux conditions grade_role et conseil.
  */
-const MISSION_CREATOR_ROLE_ID = "1479039157769732106";
+const MISSION_CREATOR_ROLE_ID = ""; // N'existe pas sur Hokkaido
 
 /** Rôle Discord "Élève Exorciste" (depuis role-mappings.ts). */
 const ELEVE_EXORCISTE_ROLE_ID = "1460101248148570122";

@@ -206,7 +206,7 @@ export default async function DashboardLayout({
         { href: "/agences", label: "Agences", icon: <IconAgence /> },
         { href: "/classement", label: "Classement", icon: <IconTrophy /> },
         { href: "/conseil", label: "Conseil", icon: <IconCouncil /> },
-        { href: "/bureau", label: "Bureau", icon: <IconBriefcase /> },
+        { href: "/bureau", label: "Conseil des 5", icon: <IconBriefcase /> },
         { href: "/missions", label: "Missions", icon: <IconSword /> },
         { href: "/cours", label: "Cours", icon: <IconScroll /> },
         { href: "/info", label: "Guide", icon: <IconInfo /> },

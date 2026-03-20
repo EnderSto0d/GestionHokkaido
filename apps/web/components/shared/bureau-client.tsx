@@ -129,7 +129,7 @@ function FilledSeatCard({
             </p>
             {membre.est_chef && (
               <span className="px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-amber-400/20 text-amber-300 ring-1 ring-amber-400/30">
-                Chef du Bureau
+                Chef du Conseil des 5
               </span>
             )}
           </div>
@@ -343,7 +343,7 @@ export function BureauClient({
       if (result.success) {
         setDesignateFeedback({
           type: "success",
-          message: "Chef du bureau désigné avec succès.",
+          message: "Chef du Conseil des 5 désigné avec succès.",
         });
       } else {
         setDesignateFeedback({
@@ -382,7 +382,7 @@ export function BureauClient({
       if (result.success) {
         setElectionActionFeedback({
           type: "success",
-          message: "Élection clôturée. Le gagnant a été ajouté au bureau.",
+          message: "Élection clôturée. Le gagnant a été ajouté au Conseil des 5.",
         });
       } else {
         setElectionActionFeedback({
@@ -462,7 +462,7 @@ export function BureauClient({
       {/* ── Section 2: Les 5 Sièges ───────────────────────────────────── */}
       <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <h2 className="text-base font-semibold text-white/80">Les 5 Sièges du Bureau</h2>
+          <h2 className="text-base font-semibold text-white/80">Les 5 Sièges du Conseil des 5</h2>
           <div className="flex items-center gap-3 text-xs text-white/30">
             <span>
               <span className="text-violet-400/70 font-medium">{nommeSlotsFilled}</span>/4 nommés
@@ -561,7 +561,7 @@ export function BureauClient({
                 </div>
               </div>
               <div>
-                <h3 className="text-sm font-semibold text-white">Gestion du Bureau</h3>
+                <h3 className="text-sm font-semibold text-white">Gestion du Conseil des 5</h3>
                 <p className="text-xs text-white/35">Actions réservées au Directeur et Co-Directeur</p>
               </div>
             </div>
@@ -588,7 +588,7 @@ export function BureauClient({
                   {showNominate && (
                     <div className="mt-3 rounded-xl bg-white/[0.03] ring-1 ring-white/[0.06] p-4">
                       <p className="text-xs text-white/40 mb-3">
-                        Recherchez un utilisateur à nommer au bureau :
+                        Recherchez un utilisateur à nommer au Conseil des 5 :
                       </p>
                       <div className="relative mb-3">
                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -622,7 +622,7 @@ export function BureauClient({
                           <p className="text-xs text-white/25 text-center py-4">
                             {nominateSearch
                               ? "Aucun utilisateur trouvé."
-                              : "Tous les utilisateurs sont déjà membres du bureau."}
+                              : "Tous les utilisateurs sont déjà membres du Conseil des 5."}
                           </p>
                         ) : (
                           filteredCandidats.map((c) => (
@@ -911,7 +911,7 @@ export function BureauClient({
               <path strokeLinecap="round" strokeLinejoin="round" d="M20.25 14.15v4.25c0 1.094-.787 2.036-1.872 2.18-2.087.277-4.216.42-6.378.42s-4.291-.143-6.378-.42c-1.085-.144-1.872-1.086-1.872-2.18v-4.25m16.5 0a2.18 2.18 0 0 0 .75-1.661V8.706c0-1.081-.768-2.015-1.837-2.175a48.114 48.114 0 0 0-3.413-.387m4.5 8.006c-.194.165-.42.295-.673.38A23.978 23.978 0 0 1 12 15.75c-2.648 0-5.195-.429-7.577-1.22a2.016 2.016 0 0 1-.673-.38m0 0A2.18 2.18 0 0 1 3 12.489V8.706c0-1.081.768-2.015 1.837-2.175a48.111 48.111 0 0 1 3.413-.387m7.5 0V5.25A2.25 2.25 0 0 0 13.5 3h-3a2.25 2.25 0 0 0-2.25 2.25v.894m7.5 0a48.667 48.667 0 0 0-7.5 0M12 12.75h.008v.008H12v-.008Z" />
             </svg>
           </div>
-          <p className="text-sm text-white/30 font-medium">Aucun membre au bureau</p>
+          <p className="text-sm text-white/30 font-medium">Aucun membre au Conseil des 5</p>
           <p className="text-xs text-white/20 mt-1">
             Le Directeur peut nommer jusqu&apos;à 4 membres et lancer une élection populaire.
           </p>

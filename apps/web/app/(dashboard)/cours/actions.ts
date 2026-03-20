@@ -19,7 +19,7 @@ export type { PingCible } from "@/app/(dashboard)/missions/mission-utils";
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 /** Canal Discord où les embeds de cours sont postés. */
-const COURS_CHANNEL_ID = "1473348642155794512";
+const COURS_CHANNEL_ID = "1476407875252392057";
 
 /** Points personnels par participant présent. */
 const POINTS_PARTICIPANT = 5;

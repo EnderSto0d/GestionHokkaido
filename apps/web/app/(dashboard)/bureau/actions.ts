@@ -9,8 +9,8 @@ import {
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const DISCORD_BUREAU_ROLE_ID = "1482945710885310530";
-const DISCORD_GUILD_ID = "1456715316313981153";
+const DISCORD_BUREAU_ROLE_ID = "1484365774066810890";
+const DISCORD_GUILD_ID = "1460103906087665707";
 const MAX_NOMME_SEATS = 4;
 const SITE_ID = process.env.NEXT_PUBLIC_SITE_ID ?? "tokyo";
 
@@ -355,7 +355,7 @@ export async function nommerMembreBureau(userId: string): Promise<ActionResult> 
   if (!directorId) {
     return {
       success: false,
-      error: "Accès refusé. Seuls les Directeurs et Co-Directeurs peuvent nommer des membres du bureau.",
+      error: "Accès refusé. Seuls les Directeurs et Co-Directeurs peuvent nommer des membres du Conseil des 5.",
     };
   }
 
@@ -380,7 +380,7 @@ export async function nommerMembreBureau(userId: string): Promise<ActionResult> 
   if ((nommeCount ?? 0) >= MAX_NOMME_SEATS) {
     return {
       success: false,
-      error: `Le bureau compte déjà ${MAX_NOMME_SEATS} membres nommés. Révoquez un membre avant d'en nommer un nouveau.`,
+      error: `Le Conseil des 5 compte déjà ${MAX_NOMME_SEATS} membres nommés. Révoquez un membre avant d'en nommer un nouveau.`,
     };
   }
 
@@ -398,7 +398,7 @@ export async function nommerMembreBureau(userId: string): Promise<ActionResult> 
   }
 
   if (existingMembre) {
-    return { success: false, error: "Cet utilisateur est déjà membre du bureau." };
+    return { success: false, error: "Cet utilisateur est déjà membre du Conseil des 5." };
   }
 
   // Vérifie que l'utilisateur cible existe et a le grade requis (Exorciste Pro ou +)
@@ -413,7 +413,7 @@ export async function nommerMembreBureau(userId: string): Promise<ActionResult> 
   }
 
   if (!ELIGIBLE_GRADE_ROLES.includes((targetUser as any).grade_role)) {
-    return { success: false, error: "Cet utilisateur doit être au minimum Exorciste Pro pour rejoindre le bureau." };
+    return { success: false, error: "Cet utilisateur doit être au minimum Exorciste Pro pour rejoindre le Conseil des 5." };
   }
 
   // Insère le nouveau membre du bureau
@@ -458,7 +458,7 @@ export async function revoquerMembreBureau(membreId: string): Promise<ActionResu
   if (!directorId) {
     return {
       success: false,
-      error: "Accès refusé. Seuls les Directeurs et Co-Directeurs peuvent révoquer des membres du bureau.",
+      error: "Accès refusé. Seuls les Directeurs et Co-Directeurs peuvent révoquer des membres du Conseil des 5.",
     };
   }
 
@@ -487,7 +487,7 @@ export async function revoquerMembreBureau(membreId: string): Promise<ActionResu
     .maybeSingle();
 
   if (membreError || !membre) {
-    return { success: false, error: "Membre du bureau introuvable." };
+    return { success: false, error: "Membre du Conseil des 5 introuvable." };
   }
 
   // Supprime le membre du bureau
@@ -535,7 +535,7 @@ export async function designerChefBureau(membreId: string): Promise<ActionResult
   if (!directorId) {
     return {
       success: false,
-      error: "Accès refusé. Seuls les Directeurs et Co-Directeurs peuvent désigner le chef du bureau.",
+      error: "Accès refusé. Seuls les Directeurs et Co-Directeurs peuvent désigner le chef du Conseil des 5.",
     };
   }
 
@@ -554,7 +554,7 @@ export async function designerChefBureau(membreId: string): Promise<ActionResult
     .maybeSingle();
 
   if (membreError || !membreCible) {
-    return { success: false, error: "Membre du bureau introuvable." };
+    return { success: false, error: "Membre du Conseil des 5 introuvable." };
   }
 
   // Démissionne l'actuel chef (s'il y en a un)
@@ -615,7 +615,7 @@ export async function lancerElectionBureau(): Promise<ActionResult> {
   }
 
   if (electionEnCours) {
-    return { success: false, error: "Une élection est déjà en cours pour ce bureau." };
+    return { success: false, error: "Une élection est déjà en cours pour le Conseil des 5." };
   }
 
   // Vérifie qu'il n'y a pas déjà un siège élu occupé
@@ -725,7 +725,7 @@ export async function voterBureau(
   if (candidatMembre) {
     return {
       success: false,
-      error: "Ce candidat est déjà membre du bureau et ne peut pas être élu.",
+      error: "Ce candidat est déjà membre du Conseil des 5 et ne peut pas être élu.",
     };
   }
 
@@ -846,11 +846,11 @@ export async function cloturerElectionBureau(
     if (insertError.code === "23505") {
       return {
         success: false,
-        error: "Le gagnant est déjà membre du bureau.",
+        error: "Le gagnant est déjà membre du Conseil des 5.",
       };
     }
     console.error("[cloturerElectionBureau] Erreur insertion gagnant:", insertError);
-    return { success: false, error: "Impossible d'inscrire le gagnant au bureau." };
+    return { success: false, error: "Impossible d'inscrire le gagnant au Conseil des 5." };
   }
 
   // Met à jour l'élection : statut terminée, elu_id, fin

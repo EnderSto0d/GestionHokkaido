@@ -16,7 +16,7 @@ type Props = {
 
 type PingType = "everyone" | "eleve_exorciste" | "escouades" | "clans" | "grades" | "grade_roles" | "grade_secondaire";
 
-const CLANS: ClanName[] = ["Kamo", "Inumaki", "Zenin", "Gojo"];
+const CLANS: ClanName[] = ["Geto", "Kenjaku", "Shizu", "Fujiwara"];
 
 const ALL_GRADES: Grades[] = [
   "Classe 4", "Classe 3", "Semi Classe 2", "Classe 2",
