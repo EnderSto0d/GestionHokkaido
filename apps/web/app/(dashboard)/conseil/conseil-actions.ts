@@ -546,6 +546,76 @@ async function notifyPropositionDiscord(
   });
 }
 
+/** Notifie le salon des propositions quand une proposition est validée */
+async function notifyPropositionValideeDiscord(propositionId: string): Promise<void> {
+  const admin = await createAdminClient();
+
+  const { data: prop } = await admin
+    .from("conseil_propositions")
+    .select("titre, type, description")
+    .eq("id", propositionId)
+    .single();
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const titre = (prop as any)?.titre ?? "Proposition";
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const type = (prop as any)?.type as "general" | "derank";
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const description = (prop as any)?.description as string | null;
+
+  const appUrl =
+    (process.env.NEXTAUTH_URL ??
+    process.env.NEXT_PUBLIC_APP_URL ??
+    (process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : "")) ||
+    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "");
+
+  const pings = [
+    "<@&1460101031269634183>", // Directeur
+    "<@&1476988002986098828>", // Co-Directeur
+    "<@&1460101093773021226>", // Professeur Principal
+    "<@&1460101179726893108>", // Professeur
+    "<@&1460101248148570122>", // Élève Exorciste
+  ].join(" ");
+
+  const typeLabel = type === "derank" ? "Déclassement" : "Générale";
+  const color = type === "derank" ? 0xe74c3c : 0x2ecc71;
+
+  const fields: { name: string; value: string; inline: boolean }[] = [
+    { name: "Type", value: typeLabel, inline: true },
+    { name: "Résultat", value: "✅ Validée", inline: true },
+  ];
+
+  if (description) {
+    fields.push({ name: "Description", value: description.slice(0, 1024), inline: false });
+  }
+
+  await sendDiscordChannelMessage(DISCORD_PROPOSITIONS_CHANNEL_ID, {
+    content: pings,
+    embeds: [
+      {
+        title: `✅ Proposition Validée : ${titre.slice(0, 200)}`,
+        color,
+        fields,
+        footer: { text: "La proposition sera exécutée dans 1 heure si aucun veto n'est émis" },
+        timestamp: new Date().toISOString(),
+      },
+    ],
+    components: [
+      {
+        type: 1,
+        components: [
+          {
+            type: 2,
+            style: 5,
+            label: "📋 Voir les propositions",
+            url: `${appUrl}/conseil`,
+          },
+        ],
+      },
+    ],
+  });
+}
+
 /** Get all active propositions */
 export async function getPropositions(): Promise<Proposition[]> {
   const admin = await createAdminClient();
@@ -940,6 +1010,12 @@ async function recalculerStatutProposition(propositionId: string): Promise<void>
         mis_a_jour_le: now.toISOString(),
       })
       .eq("id", propositionId);
+
+    if (newStatut === "validee") {
+      notifyPropositionValideeDiscord(propositionId).catch((err) =>
+        console.error("[conseil] Notification proposition validée Discord échouée:", err)
+      );
+    }
   }
 }
 
