@@ -5,12 +5,14 @@ import { createClient, createAdminClient } from "@/lib/supabase/server";
 import {
   addDiscordRoleToMember,
   removeDiscordRoleFromMember,
+  sendDiscordChannelMessage,
 } from "@/lib/discord/guild-member";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const DISCORD_BUREAU_ROLE_ID = "1484365774066810890";
 const DISCORD_GUILD_ID = "1460103906087665707";
+const DISCORD_ELECTION_CHANNEL_ID = "1482820615697338378";
 const MAX_NOMME_SEATS = 4;
 const SITE_ID = process.env.NEXT_PUBLIC_SITE_ID ?? "tokyo";
 
@@ -647,6 +649,45 @@ export async function lancerElectionBureau(): Promise<ActionResult> {
   if (insertError) {
     console.error("[lancerElectionBureau] Erreur création élection:", insertError);
     return { success: false, error: "Impossible de lancer l'élection. Veuillez réessayer." };
+  }
+
+  // Notification Discord — @everyone dans le salon d'élection
+  try {
+    const appUrl =
+      (process.env.NEXTAUTH_URL ??
+      process.env.NEXT_PUBLIC_APP_URL ??
+      (process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : "")) ||
+      (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "");
+
+    await sendDiscordChannelMessage(DISCORD_ELECTION_CHANNEL_ID, {
+      content: "@everyone",
+      embeds: [
+        {
+          title: "🗳️ Nouvelle Élection — Conseil des 5",
+          description:
+            "Une élection pour le **siège élu** du Conseil des 5 vient d'être lancée !\n\n" +
+            "Tout le monde peut voter pour son candidat. Rendez-vous sur le site pour participer.",
+          color: 0xf5a623,
+          footer: { text: "Cliquez sur le bouton ci-dessous pour accéder au vote" },
+          timestamp: new Date().toISOString(),
+        },
+      ],
+      components: [
+        {
+          type: 1,
+          components: [
+            {
+              type: 2,
+              style: 5,
+              label: "🗳️ Voter",
+              url: `${appUrl}/bureau`,
+            },
+          ],
+        },
+      ],
+    });
+  } catch (err) {
+    console.error("[lancerElectionBureau] Notification Discord échouée:", err);
   }
 
   revalidatePath("/bureau");

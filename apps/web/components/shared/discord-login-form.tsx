@@ -54,7 +54,8 @@ export function DiscordLoginForm({
     }
 
     const supabase = createClient();
-    const redirectTo = `${window.location.origin}/api/auth/callback`;
+    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || window.location.origin;
+    const redirectTo = `${baseUrl}/api/auth/callback`;
 
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "discord",
