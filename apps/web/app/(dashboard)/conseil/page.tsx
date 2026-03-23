@@ -70,6 +70,7 @@ export default async function ConseilPage() {
     utilisateur?.grade_role === "Directeur" ||
     utilisateur?.grade_role === "Co-Directeur";
   const isProfPrincipal = utilisateur?.grade_role === "Professeur Principal";
+  const gradeRole = utilisateur?.grade_role ?? null;
 
   // 3. Auto-checks on page load: deposition + execute pending proposals
   await Promise.all([
@@ -187,6 +188,7 @@ export default async function ConseilPage() {
           peutVoterEleveInfo={peutVoterEleveInfo}
           isProfOrAdmin={isProfOrAdmin}
           isDirector={isDirector}
+          gradeRole={gradeRole}
           isCouncilMember={userIsCouncilMember}
           userId={user.id}
           chiefElection={chiefElection}

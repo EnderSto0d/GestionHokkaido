@@ -121,6 +121,25 @@ async function verifyProfOrAdmin(): Promise<{ userId: string } | { error: string
   return { userId: user.id };
 }
 
+async function verifyCanManageCouncil(): Promise<{ userId: string } | { error: string }> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: "Non authentifié." };
+  const { data: _u } = await supabase
+    .from("utilisateurs")
+    .select("role, grade_role")
+    .eq("id", user.id)
+    .single();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const u = _u as any;
+  const isProfOrAdmin = u?.role === "professeur" || u?.role === "admin";
+  const isDirector = u?.grade_role === "Directeur" || u?.grade_role === "Co-Directeur";
+  if (!isProfOrAdmin && !isDirector) {
+    return { error: "Permissions insuffisantes." };
+  }
+  return { userId: user.id };
+}
+
 async function modifyDiscordRole(
   discordId: string,
   roleId: string,
@@ -263,32 +282,21 @@ async function notifyElectionDiscord(
   let typeLabel: string;
   let description: string;
 
-  if (type === "elu_eleve") {
-    const admin = await createAdminClient();
-    const top3 = await getTop3EscouadesByTotalPoints(admin);
-    const pings = top3
-      .filter((e) => e.discord_role_id)
-      .map((e) => `<@&${e.discord_role_id}>`)
-      .join(" ");
-    content = pings ? `@everyone ${pings}` : "@everyone";
+  // Hokkaido role IDs
+  const ELEVE_EXORCISTE_ROLE_ID = "1460103906418753754";
 
-    typeLabel = "Sièges Élève — Top 3 Escouades";
+  if (type === "elu_eleve") {
+    content = "@everyone";
+    typeLabel = "Sièges Élève";
     description =
       "Une élection pour les **sièges élève** du Conseil vient d'être lancée !\n\n" +
-      "Les membres des escouades du **Top 3** peuvent voter pour leurs représentants.\n\n" +
-      `💬 Salon de discussion : <#${DISCORD_TOP3_DISCUSSION_CHANNEL_ID}>`;
+      "Tout le monde peut voter pour leurs représentants.";
   } else {
-    const PROF_ROLE_IDS = [
-      "1460101031269634183",  // Directeur
-      "1476988002986098828",  // Co-Directeur
-      "1460101093773021226",  // Professeur Principal
-      "1460101179726893108",  // Professeur
-    ];
-    content = PROF_ROLE_IDS.map((id) => `<@&${id}>`).join(" ");
-    typeLabel = "Sièges Joker — Équipe Professorale";
+    content = `<@&${ELEVE_EXORCISTE_ROLE_ID}>`;
+    typeLabel = "Sièges Joker — Élèves Exorcistes";
     description =
       "Une élection pour les **sièges joker** du Conseil vient d'être lancée !\n\n" +
-      "Les membres de l'équipe professorale peuvent voter.";
+      "Les Élèves Exorcistes peuvent voter.";
   }
 
   await sendDiscordChannelMessage(DISCORD_ELECTION_CHANNEL_ID, {
@@ -384,7 +392,7 @@ export async function getElectionsEnCours(): Promise<ElectionInfo[]> {
 export async function lancerElection(
   type: "elu_eleve" | "elu_joker"
 ): Promise<ActionResult> {
-  const auth = await verifyProfOrAdmin();
+  const auth = await verifyCanManageCouncil();
   if ("error" in auth) return { success: false, error: auth.error };
 
   const admin = await createAdminClient();
@@ -399,18 +407,6 @@ export async function lancerElection(
 
   if (enCours && enCours.length > 0) {
     return { success: false, error: "Une élection de ce type est déjà en cours." };
-  }
-
-  // Vérifier qu'il y a au minimum 3 escouades dans le top 3 (uniquement pour les élections escouade)
-  if (type === "elu_eleve") {
-    const escouadesTop = await getTop3EscouadesByTotalPoints(admin);
-
-    if (!escouadesTop || escouadesTop.length < MIN_ESCOUADES_TOP3) {
-      return {
-        success: false,
-        error: `Il faut au minimum ${MIN_ESCOUADES_TOP3} escouades dans le top 3 pour lancer une élection du conseil.`,
-      };
-    }
   }
 
   // Compter les sièges déjà occupés pour ce type afin de n'élire que les places restantes
@@ -447,11 +443,6 @@ export async function lancerElection(
   } catch (err) {
     console.error("[conseil] Notification élection Discord échouée:", err);
   }
-  if (type === "elu_eleve") {
-    syncTop3DiscussionChannel().catch((err) =>
-      console.error("[conseil] Sync salon discussion Top 3 échoué:", err)
-    );
-  }
 
   revalidatePath("/conseil");
   return { success: true };
@@ -480,26 +471,6 @@ export async function peutVoterEleve(
   }
   if (election.type !== "elu_eleve") {
     return { canVote: false, reason: "Cette élection est réservée à l'équipe professorale." };
-  }
-
-  // L'utilisateur doit être dans le top 3 des escouades
-  const top3 = await getTop3EscouadesByTotalPoints(admin);
-  const top3Ids = top3.map((e) => e.id);
-
-  if (top3Ids.length === 0) {
-    return { canVote: false, reason: "Aucune escouade dans le classement." };
-  }
-
-  // Vérifier que l'utilisateur est membre d'une de ces escouades
-  const { data: membership } = await admin
-    .from("membres_escouade")
-    .select("escouade_id")
-    .eq("utilisateur_id", user.id)
-    .in("escouade_id", top3Ids)
-    .limit(1);
-
-  if (!membership || membership.length === 0) {
-    return { canVote: false, reason: "Vous devez être membre du top 3 des escouades pour voter." };
   }
 
   // Compter les votes existants de cet utilisateur pour cette élection
@@ -539,23 +510,6 @@ export async function voterEleve(
   }
 
   const admin = await createAdminClient();
-
-  // Vérifier que le candidat est membre d'une des top 3 escouades
-  const top3 = await getTop3EscouadesByTotalPoints(admin);
-  const top3Ids = top3.map((e) => e.id);
-
-  if (top3Ids.length > 0) {
-    const { data: candidatMembership } = await admin
-      .from("membres_escouade")
-      .select("escouade_id")
-      .eq("utilisateur_id", candidatId)
-      .in("escouade_id", top3Ids)
-      .limit(1);
-
-    if (!candidatMembership || candidatMembership.length === 0) {
-      return { success: false, error: "Le candidat doit être membre d'une des 3 meilleures escouades." };
-    }
-  }
 
   // Vérifier que le candidat a le grade requis (Exorciste Pro ou +)
   const { data: candidatUser } = await admin
@@ -627,10 +581,22 @@ export async function voterStaff(
   electionId: string,
   candidatId: string
 ): Promise<ActionResult> {
-  const auth = await verifyProfOrAdmin();
-  if ("error" in auth) return { success: false, error: auth.error };
+  const user = await verifyAuth();
+  if (!user) return { success: false, error: "Non authentifié." };
 
   const admin = await createAdminClient();
+
+  // Vérifier que le votant est un Élève Exorciste (joker votes réservés aux Élèves Exorcistes)
+  const { data: _votant } = await admin
+    .from("utilisateurs")
+    .select("grade_role")
+    .eq("id", user.id)
+    .single();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const votant = _votant as any;
+  if (!votant || votant.grade_role !== "Élève Exorciste") {
+    return { success: false, error: "Le vote pour les sièges joker est réservé aux Élèves Exorcistes." };
+  }
 
   // Vérifier l'élection
   const { data: _election } = await admin
@@ -649,7 +615,7 @@ export async function voterStaff(
     .from("votes_conseil")
     .select("id")
     .eq("election_id", electionId)
-    .eq("votant_id", auth.userId)
+    .eq("votant_id", user.id)
     .eq("candidat_id", candidatId)
     .limit(1);
 
@@ -662,7 +628,7 @@ export async function voterStaff(
     .from("votes_conseil_bloques")
     .select("id")
     .eq("election_id", electionId)
-    .eq("votant_id", auth.userId)
+    .eq("votant_id", user.id)
     .eq("candidat_id", candidatId)
     .limit(1);
 
@@ -680,29 +646,21 @@ export async function voterStaff(
     return { success: false, error: "Le candidat doit être au minimum Exorciste Pro." };
   }
 
-  // Compter les sièges joker déjà occupés
-  const { count: siegesOccupes } = await admin
-    .from("conseil_membres")
-    .select("id", { count: "exact", head: true })
-    .eq("type_siege", "elu_joker");
-
-  const maxVotes = MAX_SIEGES_STAFF - (siegesOccupes ?? 0);
-
-  // Compter les votes du staff
+  // Compter les votes de cet utilisateur pour cette élection
   const { count } = await admin
     .from("votes_conseil")
     .select("id", { count: "exact", head: true })
     .eq("election_id", electionId)
-    .eq("votant_id", auth.userId);
+    .eq("votant_id", user.id);
 
-  if ((count ?? 0) >= maxVotes) {
-    return { success: false, error: `Vous avez déjà utilisé vos ${maxVotes} vote(s).` };
+  if ((count ?? 0) >= MAX_VOTES_ELEVE) {
+    return { success: false, error: `Vous avez déjà utilisé vos ${MAX_VOTES_ELEVE} vote(s).` };
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { error } = await (admin.from("votes_conseil") as any).insert({
     election_id: electionId,
-    votant_id: auth.userId,
+    votant_id: user.id,
     candidat_id: candidatId,
   });
 
@@ -764,7 +722,7 @@ export async function getResultatsElection(
 export async function cloturerElection(
   electionId: string
 ): Promise<ActionResult> {
-  const auth = await verifyProfOrAdmin();
+  const auth = await verifyCanManageCouncil();
   if ("error" in auth) return { success: false, error: auth.error };
 
   const admin = await createAdminClient();
@@ -844,7 +802,7 @@ export async function cloturerElection(
 export async function annulerElection(
   electionId: string
 ): Promise<ActionResult> {
-  const auth = await verifyProfOrAdmin();
+  const auth = await verifyCanManageCouncil();
   if ("error" in auth) return { success: false, error: auth.error };
 
   const admin = await createAdminClient();
@@ -868,7 +826,7 @@ export async function annulerElection(
 export async function revoquerMembreConseil(
   membreConseilId: string
 ): Promise<ActionResult> {
-  const auth = await verifyProfOrAdmin();
+  const auth = await verifyCanManageCouncil();
   if ("error" in auth) return { success: false, error: auth.error };
 
   const admin = await createAdminClient();
@@ -918,7 +876,7 @@ export async function nommerMembreConseil(
   utilisateurId: string,
   typeSiege: "elu_eleve" | "elu_joker"
 ): Promise<ActionResult> {
-  const auth = await verifyProfOrAdmin();
+  const auth = await verifyCanManageCouncil();
   if ("error" in auth) return { success: false, error: auth.error };
 
   const admin = await createAdminClient();
@@ -998,37 +956,20 @@ export async function getCandidatsPossibles(): Promise<
     (m: any) => m.utilisateur_id as string
   );
 
-  // Récupérer le top 3 des escouades par points totaux
-  const top3Escouades = await getTop3EscouadesByTotalPoints(admin);
-  const top3Ids = top3Escouades.map((e) => e.id);
-
-  if (top3Ids.length === 0) return [];
-
-  // Récupérer les utilisateurs membres des top 3 escouades
-  const { data: membresTop3 } = await admin
-    .from("membres_escouade")
-    .select("utilisateur_id")
-    .in("escouade_id", top3Ids);
-
-  const membresTop3Ids = [...new Set(
-    (membresTop3 ?? []).map((m: { utilisateur_id: string }) => m.utilisateur_id)
-  )];
-
-  if (membresTop3Ids.length === 0) return [];
-
-  // Exclure ceux qui sont déjà au conseil
-  const candidatIds = membresTop3Ids.filter((id) => !conseilIds.includes(id));
-
-  if (candidatIds.length === 0) return [];
-
-  // Récupérer les infos des candidats éligibles
-  const { data } = await admin
-    .from("utilisateurs")
+  // Récupérer tous les utilisateurs Exorciste Pro ou + qui ne sont pas déjà au conseil
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let query = (admin.from("utilisateurs") as any)
     .select("id, pseudo, avatar_url, prenom_rp, nom_rp")
-    .in("id", candidatIds)
-    .in("grade_role", Array.from(ELIGIBLE_GRADE_ROLES))
+    .in("grade_role", ELIGIBLE_GRADE_ROLES)
     .order("pseudo");
 
+  if (conseilIds.length > 0) {
+    const { data } = await query;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return ((data ?? []) as any[]).filter((u: any) => !conseilIds.includes(u.id));
+  }
+
+  const { data } = await query;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return (data ?? []) as any[];
 }
@@ -1182,7 +1123,7 @@ export async function getVotesAnnulation(
 export async function forceAnnulerElection(
   electionId: string
 ): Promise<ActionResult> {
-  const auth = await verifyProfOrAdmin();
+  const auth = await verifyCanManageCouncil();
   if ("error" in auth) return { success: false, error: auth.error };
 
   const admin = await createAdminClient();
@@ -1227,7 +1168,7 @@ export async function forceAnnulerElection(
 export async function forceAnnulerElectionPP(
   electionId: string
 ): Promise<{ success: true; annulee: boolean } | { success: false; error: string }> {
-  const auth = await verifyProfOrAdmin();
+  const auth = await verifyCanManageCouncil();
   if ("error" in auth) return { success: false, error: auth.error };
 
   const admin = await createAdminClient();

@@ -57,6 +57,7 @@ type ConseilClientProps = {
   peutVoterEleveInfo: { canVote: boolean; reason?: string; votesRestants?: number } | null;
   isProfOrAdmin: boolean;
   isDirector: boolean;
+  gradeRole: string | null;
   isCouncilMember: boolean;
   userId: string;
   // Chief election
@@ -114,6 +115,7 @@ export function ConseilClient({
   peutVoterEleveInfo,
   isProfOrAdmin,
   isDirector,
+  gradeRole,
   isCouncilMember,
   userId,
   chiefElection,
@@ -132,6 +134,9 @@ export function ConseilClient({
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+
+  const isEleveExorciste = gradeRole === "Élève Exorciste";
+  const canManageCouncil = isProfOrAdmin || isDirector;
   const [searchTerm, setSearchTerm] = useState("");
   const [nommerSearchTerm, setNommerSearchTerm] = useState("");
   const [nommerType, setNommerType] = useState<"elu_eleve" | "elu_joker">("elu_joker");
@@ -290,7 +295,7 @@ export function ConseilClient({
     { key: "overview" as const, label: "Conseil", icon: "◎" },
     { key: "votes" as const, label: "Propositions", icon: "⬡" },
     { key: "elections" as const, label: "Élections", icon: "★" },
-    ...(isProfOrAdmin ? [{ key: "admin" as const, label: "Gestion", icon: "⚙" }] : []),
+    ...(canManageCouncil ? [{ key: "admin" as const, label: "Gestion", icon: "⚙" }] : []),
   ];
 
   return (
@@ -371,7 +376,7 @@ export function ConseilClient({
                   </span>
                 </h2>
                 <p className="text-xs text-white/30">
-                  3 élus par les escouades • 3 jokers nommés par l'équipe professorale
+                  3 élus — vote ouvert à tous • 3 jokers — vote réservé aux Élèves Exorcistes
                 </p>
               </div>
               {isCouncilMember && (
@@ -423,7 +428,7 @@ export function ConseilClient({
                   }`}>
                     {m.type_siege === "elu_eleve" ? "Élu" : m.type_siege === "classement_perso" ? "Classement" : "Joker"}
                   </div>
-                  {isProfOrAdmin && (
+                  {canManageCouncil && (
                     <button
                       onClick={() => handleRevoquer(m.id)}
                       disabled={pending}
@@ -455,10 +460,10 @@ export function ConseilClient({
                       Élection Élève en cours
                     </h3>
                     <p className="text-[10px] text-white/30 mt-0.5">
-                      3 sièges — vote ouvert aux membres du top 3 escouades
+                      3 sièges — vote ouvert à tous
                     </p>
                   </div>
-                  {isProfOrAdmin && (
+                  {canManageCouncil && (
                     <div className="flex flex-wrap gap-2 mt-2 sm:mt-0">
                       <button onClick={() => handleCloturer(electionEleve.id)} disabled={pending} className="px-4 py-2 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-400 text-xs font-medium ring-1 ring-emerald-500/20 transition-all disabled:opacity-50">
                         Clôturer
@@ -494,7 +499,7 @@ export function ConseilClient({
                     </div>
                   )}
                 </div>
-                {isProfOrAdmin && votesAnnulationEleve && votesAnnulationEleve.votants.length > 0 && (
+                {canManageCouncil && votesAnnulationEleve && votesAnnulationEleve.votants.length > 0 && (
                   <div className="px-6 py-2 bg-red-500/[0.04] border-b border-red-500/10">
                     <p className="text-[10px] text-red-400/60">
                       Votes d&apos;annulation : {votesAnnulationEleve.votants.map(v => v.pseudo).join(', ')} ({votesAnnulationEleve.votants.length}/{votesAnnulationEleve.seuilRequis} — 75 % requis{votesAnnulationEleve.tousProfsPrincipauxOntVote ? ' · unanimité PP atteinte' : ''})
@@ -580,7 +585,7 @@ export function ConseilClient({
           )}
 
           {/* Élection Joker — vote des professeurs */}
-          {electionStaff && isProfOrAdmin && (
+          {electionStaff && (isEleveExorciste || canManageCouncil) && (
             <section className="rounded-2xl bg-white/[0.02] ring-1 ring-red-500/15 overflow-hidden animate-fade-in">
               <div className="px-4 sm:px-6 py-4 bg-gradient-to-r from-red-500/[0.08] to-transparent border-b border-red-500/10">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
@@ -590,44 +595,46 @@ export function ConseilClient({
                       Élection Joker en cours
                     </h3>
                     <p className="text-[10px] text-white/30 mt-0.5">
-                      {electionStaff.nb_sieges} sièges ({electionStaff.nb_sieges} restant{electionStaff.nb_sieges > 1 ? "s" : ""}) — vote réservé aux professeurs
+                      {electionStaff.nb_sieges} sièges ({electionStaff.nb_sieges} restant{electionStaff.nb_sieges > 1 ? "s" : ""}) — vote réservé aux Élèves Exorcistes
                     </p>
                   </div>
-                  <div className="flex flex-wrap gap-2 mt-2 sm:mt-0">
-                    <button onClick={() => handleCloturer(electionStaff.id)} disabled={pending} className="px-4 py-2 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-400 text-xs font-medium ring-1 ring-emerald-500/20 transition-all disabled:opacity-50">
-                      Clôturer
-                    </button>
-                    {/* Vote d'annulation (75 %) */}
-                    {votesAnnulationStaff?.aVote ? (
-                      <button onClick={() => handleRetirerAnnulation(electionStaff.id)} disabled={pending} className="px-4 py-2 rounded-lg bg-red-500/20 text-red-300 text-xs font-medium ring-1 ring-red-500/30 transition-all disabled:opacity-50">
-                        Annuler ({votesAnnulationStaff.votants.length}/{votesAnnulationStaff.seuilRequis}) ✓
+                  {canManageCouncil && (
+                    <div className="flex flex-wrap gap-2 mt-2 sm:mt-0">
+                      <button onClick={() => handleCloturer(electionStaff.id)} disabled={pending} className="px-4 py-2 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-400 text-xs font-medium ring-1 ring-emerald-500/20 transition-all disabled:opacity-50">
+                        Clôturer
                       </button>
-                    ) : (
-                      <button onClick={() => handleAnnuler(electionStaff.id)} disabled={pending} className="px-4 py-2 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 text-xs font-medium ring-1 ring-red-500/20 transition-all disabled:opacity-50" title="75 % des profs/admins requis">
-                        Annuler ({votesAnnulationStaff?.votants.length ?? 0}/{votesAnnulationStaff?.seuilRequis ?? '?'})
-                      </button>
-                    )}
-                    {/* Annulation immédiate — Directeur / Co-Directeur / Admin */}
-                    {votesAnnulationStaff?.peutAnnulerDirectement && (
-                      <button onClick={() => handleForceAnnuler(electionStaff.id)} disabled={pending} className="px-4 py-2 rounded-lg bg-red-600/20 hover:bg-red-600/30 text-red-300 text-xs font-bold ring-1 ring-red-600/40 transition-all disabled:opacity-50" title="Annulation immédiate (Directeur / Co-Dir / Admin)">
-                        ✕ Forcer
-                      </button>
-                    )}
-                    {/* Unanimité PP */}
-                    {votesAnnulationStaff?.estProfPrincipal && (
-                      votesAnnulationStaff.aVotePP ? (
-                        <button onClick={() => handleRetirerAnnulationPP(electionStaff.id)} disabled={pending} className="px-4 py-2 rounded-lg bg-orange-500/20 text-orange-300 text-xs font-bold ring-1 ring-orange-500/30 transition-all disabled:opacity-50" title="Retirer ma confirmation PP">
-                          PP ({votesAnnulationStaff.nbVotesPP}/{votesAnnulationStaff.totalPP}) ✓
+                      {/* Vote d'annulation (75 %) */}
+                      {votesAnnulationStaff?.aVote ? (
+                        <button onClick={() => handleRetirerAnnulation(electionStaff.id)} disabled={pending} className="px-4 py-2 rounded-lg bg-red-500/20 text-red-300 text-xs font-medium ring-1 ring-red-500/30 transition-all disabled:opacity-50">
+                          Annuler ({votesAnnulationStaff.votants.length}/{votesAnnulationStaff.seuilRequis}) ✓
                         </button>
                       ) : (
-                        <button onClick={() => handleForceAnnulerPP(electionStaff.id)} disabled={pending} className="px-4 py-2 rounded-lg bg-orange-500/10 hover:bg-orange-500/20 text-orange-400 text-xs font-bold ring-1 ring-orange-500/20 transition-all disabled:opacity-50" title="Unanimité des Profs Principaux requise">
-                          PP ({votesAnnulationStaff.nbVotesPP}/{votesAnnulationStaff.totalPP})
+                        <button onClick={() => handleAnnuler(electionStaff.id)} disabled={pending} className="px-4 py-2 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 text-xs font-medium ring-1 ring-red-500/20 transition-all disabled:opacity-50" title="75 % des profs/admins requis">
+                          Annuler ({votesAnnulationStaff?.votants.length ?? 0}/{votesAnnulationStaff?.seuilRequis ?? '?'})
                         </button>
-                      )
-                    )}
-                  </div>
+                      )}
+                      {/* Annulation immédiate — Directeur / Co-Directeur / Admin */}
+                      {votesAnnulationStaff?.peutAnnulerDirectement && (
+                        <button onClick={() => handleForceAnnuler(electionStaff.id)} disabled={pending} className="px-4 py-2 rounded-lg bg-red-600/20 hover:bg-red-600/30 text-red-300 text-xs font-bold ring-1 ring-red-600/40 transition-all disabled:opacity-50" title="Annulation immédiate (Directeur / Co-Dir / Admin)">
+                          ✕ Forcer
+                        </button>
+                      )}
+                      {/* Unanimité PP */}
+                      {votesAnnulationStaff?.estProfPrincipal && (
+                        votesAnnulationStaff.aVotePP ? (
+                          <button onClick={() => handleRetirerAnnulationPP(electionStaff.id)} disabled={pending} className="px-4 py-2 rounded-lg bg-orange-500/20 text-orange-300 text-xs font-bold ring-1 ring-orange-500/30 transition-all disabled:opacity-50" title="Retirer ma confirmation PP">
+                            PP ({votesAnnulationStaff.nbVotesPP}/{votesAnnulationStaff.totalPP}) ✓
+                          </button>
+                        ) : (
+                          <button onClick={() => handleForceAnnulerPP(electionStaff.id)} disabled={pending} className="px-4 py-2 rounded-lg bg-orange-500/10 hover:bg-orange-500/20 text-orange-400 text-xs font-bold ring-1 ring-orange-500/20 transition-all disabled:opacity-50" title="Unanimité des Profs Principaux requise">
+                            PP ({votesAnnulationStaff.nbVotesPP}/{votesAnnulationStaff.totalPP})
+                          </button>
+                        )
+                      )}
+                    </div>
+                  )}
                 </div>
-                {votesAnnulationStaff && votesAnnulationStaff.votants.length > 0 && (
+                {canManageCouncil && votesAnnulationStaff && votesAnnulationStaff.votants.length > 0 && (
                   <div className="px-6 py-2 bg-red-500/[0.04] border-b border-red-500/10">
                     <p className="text-[10px] text-red-400/60">
                       Votes d&apos;annulation : {votesAnnulationStaff.votants.map(v => v.pseudo).join(', ')} ({votesAnnulationStaff.votants.length}/{votesAnnulationStaff.seuilRequis} — 75 % requis{votesAnnulationStaff.tousProfsPrincipauxOntVote ? ' · unanimité PP atteinte' : ''})
@@ -746,9 +753,9 @@ export function ConseilClient({
                 <div className="flex items-center justify-between">
                   <div>
                     <h3 className="font-bold text-white text-sm">Élection Élève en cours</h3>
-                    <p className="text-[10px] text-white/30">3 sièges — vote des top 3 escouades</p>
+                    <p className="text-[10px] text-white/30">3 sièges — vote ouvert à tous</p>
                   </div>
-                  {isProfOrAdmin && (
+                  {canManageCouncil && (
                     <div className="flex gap-2">
                       <button onClick={() => handleCloturer(electionEleve.id)} disabled={pending} className="px-4 py-2 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-400 text-xs font-medium ring-1 ring-emerald-500/20 transition-all disabled:opacity-50">
                         Clôturer
@@ -782,7 +789,7 @@ export function ConseilClient({
                     </div>
                   )}
                 </div>
-                {isProfOrAdmin && votesAnnulationEleve && votesAnnulationEleve.votants.length > 0 && (
+                {canManageCouncil && votesAnnulationEleve && votesAnnulationEleve.votants.length > 0 && (
                   <div className="px-6 py-2 bg-red-500/[0.04] border-b border-red-500/10">
                     <p className="text-[10px] text-red-400/60">
                       Votes d&apos;annulation : {votesAnnulationEleve.votants.map(v => v.pseudo).join(', ')} ({votesAnnulationEleve.votants.length}/{votesAnnulationEleve.seuilRequis} — 75 % requis{votesAnnulationEleve.tousProfsPrincipauxOntVote ? ' · unanimité PP atteinte' : ''})
@@ -868,47 +875,49 @@ export function ConseilClient({
           )}
 
           {/* Élection staff en cours */}
-          {electionStaff && isProfOrAdmin && (
+          {electionStaff && (isEleveExorciste || canManageCouncil) && (
             <section className="rounded-2xl bg-white/[0.02] ring-1 ring-red-500/15 overflow-hidden">
               <div className="px-6 py-4 bg-gradient-to-r from-red-500/[0.08] to-transparent border-b border-red-500/10">
                 <div className="flex items-center justify-between">
                   <div>
                     <h3 className="font-bold text-white text-sm">Élection Joker en cours</h3>
-                    <p className="text-[10px] text-white/30">{electionStaff.nb_sieges} sièges ({electionStaff.nb_sieges} restant{electionStaff.nb_sieges > 1 ? "s" : ""}) — vote de l&apos;équipe professorale</p>
+                    <p className="text-[10px] text-white/30">{electionStaff.nb_sieges} sièges ({electionStaff.nb_sieges} restant{electionStaff.nb_sieges > 1 ? "s" : ""}) — vote réservé aux Élèves Exorcistes</p>
                   </div>
-                  <div className="flex gap-2">
-                    <button onClick={() => handleCloturer(electionStaff.id)} disabled={pending} className="px-4 py-2 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-400 text-xs font-medium ring-1 ring-emerald-500/20 transition-all disabled:opacity-50">
-                      Clôturer
-                    </button>
-                    {votesAnnulationStaff?.aVote ? (
-                      <button onClick={() => handleRetirerAnnulation(electionStaff.id)} disabled={pending} className="px-4 py-2 rounded-lg bg-red-500/20 text-red-300 text-xs font-medium ring-1 ring-red-500/30 transition-all disabled:opacity-50">
-                        Annuler ({votesAnnulationStaff.votants.length}/{votesAnnulationStaff.seuilRequis}) ✓
+                  {canManageCouncil && (
+                    <div className="flex gap-2">
+                      <button onClick={() => handleCloturer(electionStaff.id)} disabled={pending} className="px-4 py-2 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-400 text-xs font-medium ring-1 ring-emerald-500/20 transition-all disabled:opacity-50">
+                        Clôturer
                       </button>
-                    ) : (
-                      <button onClick={() => handleAnnuler(electionStaff.id)} disabled={pending} className="px-4 py-2 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 text-xs font-medium ring-1 ring-red-500/20 transition-all disabled:opacity-50" title="75 % des profs/admins requis">
-                        Annuler ({votesAnnulationStaff?.votants.length ?? 0}/{votesAnnulationStaff?.seuilRequis ?? '?'})
-                      </button>
-                    )}
-                    {votesAnnulationStaff?.peutAnnulerDirectement && (
-                      <button onClick={() => handleForceAnnuler(electionStaff.id)} disabled={pending} className="px-4 py-2 rounded-lg bg-red-600/20 hover:bg-red-600/30 text-red-300 text-xs font-bold ring-1 ring-red-600/40 transition-all disabled:opacity-50" title="Annulation immédiate (Directeur / Co-Dir / Admin)">
-                        ✕ Forcer
-                      </button>
-                    )}
-                    {/* Unanimité PP */}
-                    {votesAnnulationStaff?.estProfPrincipal && (
-                      votesAnnulationStaff.aVotePP ? (
-                        <button onClick={() => handleRetirerAnnulationPP(electionStaff.id)} disabled={pending} className="px-4 py-2 rounded-lg bg-orange-500/20 text-orange-300 text-xs font-bold ring-1 ring-orange-500/30 transition-all disabled:opacity-50" title="Retirer ma confirmation PP">
-                          PP ({votesAnnulationStaff.nbVotesPP}/{votesAnnulationStaff.totalPP}) ✓
+                      {votesAnnulationStaff?.aVote ? (
+                        <button onClick={() => handleRetirerAnnulation(electionStaff.id)} disabled={pending} className="px-4 py-2 rounded-lg bg-red-500/20 text-red-300 text-xs font-medium ring-1 ring-red-500/30 transition-all disabled:opacity-50">
+                          Annuler ({votesAnnulationStaff.votants.length}/{votesAnnulationStaff.seuilRequis}) ✓
                         </button>
                       ) : (
-                        <button onClick={() => handleForceAnnulerPP(electionStaff.id)} disabled={pending} className="px-4 py-2 rounded-lg bg-orange-500/10 hover:bg-orange-500/20 text-orange-400 text-xs font-bold ring-1 ring-orange-500/20 transition-all disabled:opacity-50" title="Unanimité des Profs Principaux requise">
-                          PP ({votesAnnulationStaff.nbVotesPP}/{votesAnnulationStaff.totalPP})
+                        <button onClick={() => handleAnnuler(electionStaff.id)} disabled={pending} className="px-4 py-2 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 text-xs font-medium ring-1 ring-red-500/20 transition-all disabled:opacity-50" title="75 % des profs/admins requis">
+                          Annuler ({votesAnnulationStaff?.votants.length ?? 0}/{votesAnnulationStaff?.seuilRequis ?? '?'})
                         </button>
-                      )
-                    )}
-                  </div>
+                      )}
+                      {votesAnnulationStaff?.peutAnnulerDirectement && (
+                        <button onClick={() => handleForceAnnuler(electionStaff.id)} disabled={pending} className="px-4 py-2 rounded-lg bg-red-600/20 hover:bg-red-600/30 text-red-300 text-xs font-bold ring-1 ring-red-600/40 transition-all disabled:opacity-50" title="Annulation immédiate (Directeur / Co-Dir / Admin)">
+                          ✕ Forcer
+                        </button>
+                      )}
+                      {/* Unanimité PP */}
+                      {votesAnnulationStaff?.estProfPrincipal && (
+                        votesAnnulationStaff.aVotePP ? (
+                          <button onClick={() => handleRetirerAnnulationPP(electionStaff.id)} disabled={pending} className="px-4 py-2 rounded-lg bg-orange-500/20 text-orange-300 text-xs font-bold ring-1 ring-orange-500/30 transition-all disabled:opacity-50" title="Retirer ma confirmation PP">
+                            PP ({votesAnnulationStaff.nbVotesPP}/{votesAnnulationStaff.totalPP}) ✓
+                          </button>
+                        ) : (
+                          <button onClick={() => handleForceAnnulerPP(electionStaff.id)} disabled={pending} className="px-4 py-2 rounded-lg bg-orange-500/10 hover:bg-orange-500/20 text-orange-400 text-xs font-bold ring-1 ring-orange-500/20 transition-all disabled:opacity-50" title="Unanimité des Profs Principaux requise">
+                            PP ({votesAnnulationStaff.nbVotesPP}/{votesAnnulationStaff.totalPP})
+                          </button>
+                        )
+                      )}
+                    </div>
+                  )}
                 </div>
-                {votesAnnulationStaff && votesAnnulationStaff.votants.length > 0 && (
+                {canManageCouncil && votesAnnulationStaff && votesAnnulationStaff.votants.length > 0 && (
                   <div className="px-6 py-2 bg-red-500/[0.04] border-b border-red-500/10">
                     <p className="text-[10px] text-red-400/60">
                       Votes d&apos;annulation : {votesAnnulationStaff.votants.map(v => v.pseudo).join(', ')} ({votesAnnulationStaff.votants.length}/{votesAnnulationStaff.seuilRequis} — 75 % requis{votesAnnulationStaff.tousProfsPrincipauxOntVote ? ' · unanimité PP atteinte' : ''})
@@ -989,7 +998,7 @@ export function ConseilClient({
       )}
 
       {/* ═══ TAB: Admin (prof/admin only) ═══ */}
-      {activeTab === "admin" && isProfOrAdmin && (
+      {activeTab === "admin" && canManageCouncil && (
         <section className="space-y-6">
           <div className="rounded-2xl bg-white/[0.02] ring-1 ring-white/10 overflow-hidden">
             <div className="px-6 py-4 border-b border-white/5">
